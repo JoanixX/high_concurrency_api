@@ -1,0 +1,107 @@
+use config::{Config, File};
+use serde::Deserialize;
+use secrecy::{ExposeSecret, Secret};
+use serde_aux::field_attributes::deserialize_number_from_string;
+use std::convert::{TryFrom, TryInto};
+
+#[derive(Deserialize)]
+pub struct Settings {
+    pub application: ApplicationSettings,
+    pub database: DatabaseSettings,
+}
+
+#[derive(Deserialize)]
+pub struct ApplicationSettings {
+    #[serde(deserialize_with = "deserialize_number_from_string")]
+    pub port: u16,
+    pub host: String,
+}
+
+#[derive(Deserialize)]
+pub struct DatabaseSettings {
+    pub username: String,
+    pub password: Secret<String>,
+    #[serde(deserialize_with = "deserialize_number_from_string")]
+    pub port: u16,
+    pub host: String,
+    pub database_name: String,
+    pub require_ssl: bool,
+}
+
+impl DatabaseSettings {
+    pub fn connection_string(&self) -> Secret<String> {
+        Secret::new(format!(
+            "postgres://{}:{}@{}:{}/{}",
+            self.username,
+            self.password.expose_secret(),
+            self.host,
+            self.port,
+            self.database_name
+        ))
+    }
+
+    pub fn connection_string_without_db(&self) -> Secret<String> {
+        Secret::new(format!(
+            "postgres://{}:{}@{}:{}",
+            self.username,
+            self.password.expose_secret(),
+            self.host,
+            self.port
+        ))
+    }
+}
+
+pub fn get_configuration() -> Result<Settings, config::ConfigError> {
+    let base_path = std::env::current_dir().expect("Falló al determinar el directorio actual");
+    let configuration_directory = base_path.join("configuration");
+
+    // Detectamos el entorno de ejecución (local, production)
+    // Por defecto usamos 'local' si no se especifica nada
+    let environment: Environment = std::env::var("APP_ENVIRONMENT")
+        .unwrap_or_else(|_| "local".into())
+        .try_into()
+        .expect("Falló al parsear APP_ENVIRONMENT.");
+
+    let environment_filename = format!("{}.yaml", environment.as_str());
+    
+    let settings = Config::builder()
+        // Cargamos configuración base común a todos los entornos
+        .add_source(File::from(configuration_directory.join("base.yaml")))
+        // Cargamos la configuración específica del entorno (override)
+        .add_source(File::from(configuration_directory.join(environment_filename)))
+        // Agregamos configuración desde variables de entorno
+        // Ej: APP_APPLICATION__PORT=5001 sobreescribe application.port
+        .add_source(config::Environment::with_prefix("APP").separator("__"))
+        .build()?;
+
+    settings.try_deserialize::<Settings>()
+}
+
+pub enum Environment {
+    Local,
+    Production,
+}
+
+impl Environment {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Environment::Local => "local",
+            Environment::Production => "production",
+        }
+    }
+}
+
+impl TryFrom<String> for Environment {
+    type Error = String;
+
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        match s.to_lowercase().as_str() {
+            "local" => Ok(Self::Local),
+            "production" => Ok(Self::Production),
+            other => Err(format!(
+                "{} no es un entorno soportado. Usa 'local' o 'production'.",
+                other
+            )),
+        }
+    }
+}

@@ -1,0 +1,20 @@
+# Rust-generated files
+/target
+/debug
+
+# Backup files
+**/*.rs.bk
+*.swp
+
+# Environment variables
+.env
+
+# Editor settings
+.idea
+.vscode
+*.iml
+*.iws
+
+# OS files
+.DS_Store
+Thumbs.db
