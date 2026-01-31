@@ -3,23 +3,40 @@ import { check, sleep } from 'k6';
 
 export const options = {
   stages: [
-    { duration: '30s', target: 20 },  // Fase de calentamiento (subimos a 20 usuarios)
-    { duration: '1m', target: 50 },   // Fase de estrés (mantenemos 50 usuarios concurrentes)
-    { duration: '20s', target: 0 },   // Fase de enfriamiento (bajamos a 0)
+    { duration: '30s', target: 50 },    // Ramp-up: 0 to 50 users
+    { duration: '1m', target: 200 },   // Stress: Steady at 200 users
+    { duration: '30s', target: 0 },     // Ramp-down
   ],
   thresholds: {
-    // El 95% de las peticiones deben completarse en menos de 500ms
-    // Si esto no se cumple, el test falla.
-    http_req_duration: ['p(95)<500'], 
+    // 95% of requests should be below 50ms for high-concurrency validation
+    http_req_duration: ['p(95)<50'], 
+    http_req_failed: ['rate<0.01'],   // Error rate should be less than 1%
   },
 };
 
 export default function () {
-  const res = http.get('http://localhost:8000/health_check');
+  const url = 'http://localhost:8000/bets';
+  
+  const payload = JSON.stringify({
+    user_id: "550e8400-e29b-41d4-a716-446655440000",
+    match_id: "123e4567-e89b-12d3-a456-426614174000",
+    amount: 10.50,
+    odds: 1.85,
+  });
+
+  const params = {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  };
+
+  const res = http.post(url, payload, params);
   
   check(res, {
-    'status fue 200': (r) => r.status == 200,
+    'status is 200': (r) => r.status === 200,
+    'latency is low': (r) => r.timings.duration < 20,
   });
   
-  sleep(1);
+  // Minimal sleep to simulate high concurrency throughput
+  sleep(0.1);
 }

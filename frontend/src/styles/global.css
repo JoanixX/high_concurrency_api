@@ -300,3 +300,21 @@ footer {
     transform: rotate(360deg);
   }
 }
+
+/* Utils */
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.auth-switch {
+  text-align: center;
+  margin-top: 1rem;
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.auth-switch:hover {
+  color: var(--primary-color);
+}
