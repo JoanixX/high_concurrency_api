@@ -87,7 +87,7 @@ export function BettingSlip() {
               onClick={clearAll}
               className="text-muted-foreground"
             >
-              Clear all
+              Limpiar todo
             </Button>
           )}
         </div>

@@ -2,7 +2,7 @@
 
 API de alto rendimiento desarrollada en **Rust** diseñada para la validación crítica de apuestas en eventos en vivo. El motor está optimizado para baja latencia y alta disponibilidad, capaz de procesar ráfagas masivas de transacciones concurrentes.
 
-## 🚀 Core Focus: Alta Concurrencia
+## 🚀 Enfoque Principal: Alta Concurrencia
 
 Este proyecto no es solo una API CRUD; es un ejercicio de ingeniería de rendimiento que implementa:
 
@@ -18,7 +18,7 @@ Este proyecto no es solo una API CRUD; es un ejercicio de ingeniería de rendimi
 - **Persistencia**: PostgreSQL.
 - **Infraestructura**: Docker Compose.
 - **Testing de Carga**: k6 (Grafana).
-- **Frontend**: Astro (Dashboard de métricas y simulador).
+- **Frontend**: Next.js 14 (Dashboard de métricas y simulador en tiempo real).
 
 ## 📊 Simulación & Pruebas de Estrés
 
@@ -59,7 +59,7 @@ k6 run load_test.js
 
 ## 📋 Arquitectura de Validación
 
-La API implementa un patrón **Hexagonal** donde las reglas de negocio (odds, límites de usuario, estado del partido) se validan en una capa de dominio desacoplada, permitiendo escalar el motor horizontalmente.
+La API implementa un patrón **en Capas (Layered)** donde las reglas de negocio (odds, límites de usuario, estado del partido) se validan en una capa de dominio desacoplada, permitiendo escalar el motor horizontalmente.
 
 ---
 

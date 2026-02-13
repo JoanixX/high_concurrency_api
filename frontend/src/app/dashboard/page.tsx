@@ -25,15 +25,15 @@ export default function DashboardPage() {
       {/* header con estado de conexión */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Live Dashboard</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Dashboard en Vivo</h1>
           <p className="text-sm text-muted-foreground">
-            Real-time odds from high-concurrency Rust backend
+            Cuotas en tiempo real desde el backend de alta concurrencia en Rust
           </p>
         </div>
         <div className="flex items-center gap-3">
           <Badge variant="outline" className="gap-1">
             <Zap className="h-3 w-3" />
-            {matches.filter((m) => m.status === 'live').length} live
+            {matches.filter((m) => m.status === 'live').length} en vivo
           </Badge>
           <ConnectionStatus />
         </div>
@@ -54,7 +54,7 @@ export default function DashboardPage() {
         <div className="rounded-lg border p-4">
           <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
             <Activity className="h-4 w-4" />
-            Recent Activity
+            Actividad Reciente
           </h2>
           <div className="space-y-1">
             {activityLog.slice(0, 5).map((entry, i) => (
@@ -63,7 +63,7 @@ export default function DashboardPage() {
                 className="flex items-center justify-between text-xs text-muted-foreground"
               >
                 <span>
-                  ${entry.amount.toFixed(2)} bet
+                  ${entry.amount.toFixed(2)} apuesta
                   {entry.status && (
                     <Badge
                       variant={entry.status === 'Validated' ? 'default' : 'destructive'}

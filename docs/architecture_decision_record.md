@@ -1,4 +1,4 @@
-# Architecture Decision Record (ADR) - High Concurrency API
+# Registro de Decisiones Arquitectónicas (ADR) - API de Alta Concurrencia
 
 ## Contexto
 

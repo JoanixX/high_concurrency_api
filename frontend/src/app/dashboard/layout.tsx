@@ -8,8 +8,8 @@ export default function DashboardLayout({
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b px-6 py-4">
-        <h1 className="text-xl font-bold">High Concurrency API</h1>
-        <p className="text-sm text-muted-foreground">Real-Time Betting Engine</p>
+        <h1 className="text-xl font-bold">API de Alta Concurrencia</h1>
+        <p className="text-sm text-muted-foreground">Motor de Apuestas en Tiempo Real</p>
       </header>
       <div className="p-6">
         {children}

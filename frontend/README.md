@@ -1,36 +1,75 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Frontend — Dashboard de Apuestas en Tiempo Real
 
-## Getting Started
+Interfaz web construida con **Next.js 14** (App Router) que consume la API de alta concurrencia en Rust. Muestra odds en tiempo real, permite colocar apuestas y visualizar la actividad del motor de validación.
 
-First, run the development server:
+## 🛠️ Stack Tecnológico
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- **Framework**: Next.js 14 (App Router, Server Components + Client Components)
+- **Lenguaje**: TypeScript
+- **Estado Global**: Zustand (stores granulares para odds, apuestas y auth)
+- **Data Fetching**: TanStack Query (React Query) para datos REST
+- **Tiempo Real**: WebSocket nativo con reconexión exponencial + heartbeat
+- **Estilos**: Tailwind CSS + shadcn/ui
+- **HTTP Client**: Axios con interceptores de auth
+
+## 📂 Estructura
+
+```
+src/
+├── app/                  # Rutas de Next.js (App Router)
+│   ├── (auth)/           # Rutas de autenticación (login, registro)
+│   ├── dashboard/        # Dashboard principal con odds en vivo
+│   ├── layout.tsx        # Layout raíz con providers
+│   └── page.tsx          # Página de inicio
+├── components/           # Componentes reutilizables
+│   ├── ui/               # Primitivos de shadcn/ui (Button, Card, Table, etc.)
+│   ├── betting-slip.tsx  # Boleta de apuestas
+│   ├── live-odds-row.tsx # Fila memoizada de odds en vivo
+│   └── live-odds-table.tsx
+├── hooks/                # Custom hooks
+│   ├── use-live-odds.ts  # Selector granular de odds por partido
+│   ├── use-place-bet.ts  # Mutación REST + pending en Zustand
+│   ├── use-socket.ts     # Conexión WebSocket → stores
+│   └── ...
+├── lib/                  # Utilidades y clientes
+│   ├── api.ts            # Cliente Axios preconfigurado
+│   ├── socket.ts         # Cliente WebSocket con reconnect + heartbeat
+│   └── mock-socket.ts   # Simulador de odds (sin backend)
+├── store/                # Stores de Zustand
+│   ├── auth-store.ts
+│   ├── betting-store.ts
+│   ├── odds-store.ts
+│   └── selections-store.ts
+└── types/                # Tipos TypeScript (espejo de domain/models.rs)
+    └── domain.ts
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🚀 Ejecución Local
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+# Instalar dependencias
+npm install
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+# Iniciar servidor de desarrollo
+npm run dev
+```
 
-## Learn More
+Se abre en `http://localhost:3000`. El dashboard funciona con datos simulados (mock) sin necesidad del backend.
 
-To learn more about Next.js, take a look at the following resources:
+## 🏗️ Build de Producción
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm run build
+npm start
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+El build utiliza `output: 'standalone'` para generar un contenedor autocontenido compatible con Docker.
 
-## Deploy on Vercel
+## ⚙️ Variables de Entorno
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Crear un archivo `.env.local` en la carpeta `frontend/`:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_WS_URL=ws://localhost:8000
+```

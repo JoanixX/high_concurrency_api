@@ -27,8 +27,8 @@ Si deseas alojar el frontend en Vercel para un mejor rendimiento global, y la AP
 
 1.  **Panel de Vercel:** "New Project" -> Selecciona el Repo.
 2.  **Ajustes de Proyecto:** Configura el "Root Directory" como `frontend`.
-3.  **Framework Preset:** Other / None.
-4.  **Directorio de Salida (Output Directory):** `public`
+3.  **Framework Preset:** Next.js.
+4.  **Directorio de Salida (Output Directory):** Automático (Next.js lo gestiona con `output: 'standalone'`).
 5.  **Variables de Entorno:**
     - Añade `API_URL`: La URL de tu backend (ej. `https://tu-api.onrender.com`).
 

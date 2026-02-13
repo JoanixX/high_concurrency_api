@@ -21,10 +21,10 @@ export function LiveOddsTable({ matches }: LiveOddsTableProps) {
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead className="w-[200px]">Match</TableHead>
-          <TableHead className="w-[100px]">Status</TableHead>
-          <TableHead className="w-[100px] text-right">Odds</TableHead>
-          <TableHead className="w-[100px] text-right">Action</TableHead>
+          <TableHead className="w-[200px]">Partido</TableHead>
+          <TableHead className="w-[100px]">Estado</TableHead>
+          <TableHead className="w-[100px] text-right">Cuota</TableHead>
+          <TableHead className="w-[100px] text-right">Acción</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>

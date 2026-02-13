@@ -6,7 +6,7 @@ import { QueryProvider } from '@/components/providers';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Betting Validation Engine | High Concurrency',
+  title: 'Motor de Validación de Apuestas | Alta Concurrencia',
   description: 'Motor de validación de apuestas en tiempo real, diseñado para alta concurrencia con Rust + Next.js',
 };
 

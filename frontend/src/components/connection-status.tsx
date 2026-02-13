@@ -13,25 +13,25 @@ export function ConnectionStatus() {
     connected: {
       variant: 'default' as const,
       icon: Wifi,
-      label: 'Connected',
+      label: 'Conectado',
       className: 'bg-green-600 hover:bg-green-600',
     },
     connecting: {
       variant: 'secondary' as const,
       icon: RefreshCw,
-      label: 'Connecting...',
+      label: 'Conectando...',
       className: 'animate-pulse',
     },
     reconnecting: {
       variant: 'secondary' as const,
       icon: RefreshCw,
-      label: 'Reconnecting...',
+      label: 'Reconectando...',
       className: 'animate-pulse',
     },
     disconnected: {
       variant: 'destructive' as const,
       icon: WifiOff,
-      label: 'Disconnected',
+      label: 'Desconectado',
       className: '',
     },
   };

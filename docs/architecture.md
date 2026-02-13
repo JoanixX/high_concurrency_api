@@ -6,11 +6,11 @@ El proyecto está organizado como un monorepo para mantener la atomicidad entre 
 
 ## Capas
 
-- **Frontend (Lado del Cliente):** Implementación pura de archivos estáticos servida vía CDN (producción) o servidor estático local.
-- **Backend (Lado del Servidor):** API de Rust de alto rendimiento utilizando Actix-Web. Sigue la **Arquitectura Hexagonal**.
+- **Frontend (Lado del Cliente):** Aplicación Next.js 14 (App Router) con Zustand, TanStack Query y WebSocket en tiempo real.
+- **Backend (Lado del Servidor):** API de Rust de alto rendimiento utilizando Actix-Web. Sigue la **Arquitectura en Capas** (ver ADR).
 - **Infraestructura:** Orquestación de contenedores a través de Docker y configuraciones listas para la nube.
 
-## Arquitectura del Backend (Hexagonal / Puertos y Adaptadores)
+## Arquitectura del Backend (Capas / Layered)
 
 1. **Capa de Dominio:** Lógica de negocio pura. Sin dependencias de bases de datos o frameworks web.
 2. **Handlers (Adaptadores):** Traduce las peticiones HTTP en comandos de dominio.

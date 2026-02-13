@@ -5,10 +5,10 @@ export default function HomePage() {
     <main className="flex min-h-screen items-center justify-center">
       <div className="text-center">
         <h1 className="text-4xl font-bold tracking-tight">
-          Betting Validation Engine
+          Motor de Validación de Apuestas
         </h1>
         <p className="mt-2 text-muted-foreground">
-          High Concurrency API — Fase 1: Arquitectura lista
+          API de Alta Concurrencia — Fase 1: Arquitectura lista
         </p>
       </div>
     </main>
