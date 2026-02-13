@@ -12,7 +12,7 @@ use argon2::{
 use secrecy::{ExposeSecret, Secret};
 use crate::domain::models::{CreateUserRequest, LoginRequest};
 
-#[tracing::instrument(name = "Registering a new user", skip(form, pool))]
+#[tracing::instrument(name = "Registrando nuevo usuario", skip(form, pool))]
 pub async fn register(
     form: web::Json<CreateUserRequest>,
     pool: web::Data<PgPool>,
@@ -21,7 +21,7 @@ pub async fn register(
     let salt = SaltString::generate(&mut OsRng);
     let argon2 = Argon2::default();
     let password_hash = argon2.hash_password(form.password.as_bytes(), &salt)
-        .expect("Failed to hash password")
+        .expect("Falló al hashear la contraseña")
         .to_string();
 
     match sqlx::query!(
@@ -46,7 +46,7 @@ pub async fn register(
     }
 }
 
-#[tracing::instrument(name = "Logging in a user", skip(form, pool))]
+#[tracing::instrument(name = "Login de usuario", skip(form, pool))]
 pub async fn login(
     form: web::Json<LoginRequest>,
     pool: web::Data<PgPool>,
@@ -59,14 +59,14 @@ pub async fn login(
     .await
     {
         Ok(Some(u)) => u,
-        Ok(None) => return HttpResponse::Unauthorized().body("Invalid credentials"),
+        Ok(None) => return HttpResponse::Unauthorized().body("Credenciales inválidas"),
         Err(e) => {
             tracing::error!("Database error: {:?}", e);
             return HttpResponse::InternalServerError().finish();
         }
     };
 
-    let parsed_hash = PasswordHash::new(&user.password_hash).expect("Invalid hash in DB");
+    let parsed_hash = PasswordHash::new(&user.password_hash).expect("Hash inválido en la db");
     if Argon2::default().verify_password(form.password.as_bytes(), &parsed_hash).is_ok() {
          HttpResponse::Ok().json(serde_json::json!({
              "status": "authenticated", 
@@ -74,6 +74,6 @@ pub async fn login(
              "name": user.name
          }))
     } else {
-        HttpResponse::Unauthorized().body("Invalid credentials")
+        HttpResponse::Unauthorized().body("Credenciales inválidas")
     }
 }

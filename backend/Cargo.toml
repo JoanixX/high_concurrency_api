@@ -24,11 +24,10 @@ serde_json = "1.0"
 serde-aux = "4.2"
 secrecy = { version = "0.8", features = ["serde"] }
 
-# Producción con Upstash
+# cliente http para upstash rest
 reqwest = { version = "0.11", features = ["json"] }
 
-# Base de Datos
-# Usamos rustls para SSL para evitar líos con OpenSSL en Docker
+# base de datos (rustls para evitar problemas con openssl en docker)
 sqlx = { version = "0.7", features = [
     "runtime-tokio-rustls", 
     "macros", 
@@ -50,14 +49,14 @@ tracing-bunyan-formatter = "0.3"
 tracing-log = "0.1"
 tracing-actix-web = "0.7"
 
-# Utilidades
+# utilidades
 uuid = { version = "1.4", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 thiserror = "1.0"
 anyhow = "1.0"
 validator = { version = "0.16", features = ["derive"] }
 
-# Métricas (Prometheus) - Opcional, pero clave para alta concurrencia
+# métricas prometheus (opcional, útil para alta concurrencia)
 actix-web-prom = "0.6"
 argon2 = { version = "0.5", features = ["std"] }
 

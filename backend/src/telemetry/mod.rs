@@ -5,12 +5,8 @@ use tracing_log::LogTracer;
 use tracing_subscriber::{layer::SubscriberExt, EnvFilter, Registry};
 use tracing_subscriber::fmt::MakeWriter;
 
-/// Compone múltiples capas en un `subscriber` de tracing.
-///
-/// # Notas de Implementación
-/// 
-/// Usamos `impl Subscriber` como tipo de retorno para evitar escribir 
-/// el tipo complejo completo del subscriber.
+/// compone múltiples capas en un subscriber de tracing.
+/// usamos `impl Subscriber` como retorno para no escribir el tipo completo.
 pub fn get_subscriber<Sink>(
     name: String,
     env_filter: String,
@@ -19,7 +15,7 @@ pub fn get_subscriber<Sink>(
 where
     Sink: for<'a> MakeWriter<'a> + Send + Sync + 'static,
 {
-    // Filtro basado en variables de entorno (RUST_LOG)
+    // filtro basado en la variable RUST_LOG
     let env_filter = EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| EnvFilter::new(env_filter));
         
@@ -35,9 +31,7 @@ where
         .with(formatting_layer)
 }
 
-/// Registra el subscriber como global para procesar spans.
-///
-/// Solo debe llamarse una vez.
+/// registra el subscriber como global. solo se llama una vez.
 pub fn init_subscriber(subscriber: impl Subscriber + Send + Sync) {
     // Redirige logs estándar (log crates) a tracing
     LogTracer::init().expect("Falló al setear el logger");

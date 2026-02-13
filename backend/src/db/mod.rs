@@ -13,11 +13,10 @@ pub fn get_connection_pool(configuration: &DatabaseSettings) -> PgPool {
 pub async fn build_connection_pool(configuration: &DatabaseSettings) -> Result<PgPool, sqlx::Error> {
     let pool = PgPoolOptions::new()
         .acquire_timeout(std::time::Duration::from_secs(2))
-        // Configuración para alta concurrencia
-        .max_connections(100) // Límite duro de conexiones
-        .min_connections(5)   // Mantenemos algunas calientes
-        .idle_timeout(std::time::Duration::from_secs(30)) // Cerramos conexiones ociosas
-        .max_lifetime(std::time::Duration::from_secs(1800)) // Rotamos conexiones cada 30 min
+        .max_connections(100) // límite duro de conexiones
+        .min_connections(5)   // mantenemos algunas calientes
+        .idle_timeout(std::time::Duration::from_secs(30)) // cerramos conexiones ociosas
+        .max_lifetime(std::time::Duration::from_secs(1800)) // rotamos cada 30 min
         .connect_with(configuration.connection_string().expose_secret().parse().unwrap())
         .await?;
 

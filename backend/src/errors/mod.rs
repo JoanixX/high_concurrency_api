@@ -27,10 +27,10 @@ impl ResponseError for AppError {
     }
 
     fn error_response(&self) -> HttpResponse {
-        // Podríamos personalizar el formato de respuesta aquí (ej. JSON estandarizado)
+        // acá se puede personalizar el formato de respuesta (json estandarizado)
         match self {
             AppError::UnexpectedError(_) => {
-                // No queremos filtrar detalles internos al cliente en errores 500
+                // no filtramos detalles internos al cliente en errores 500
                 HttpResponse::InternalServerError().json(serde_json::json!({
                     "error": "Error Interno del Servidor"
                 }))

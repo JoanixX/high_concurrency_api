@@ -22,14 +22,14 @@ pub struct Application {
 
 impl Application {
     pub async fn build(configuration: config::Settings) -> Result<Self, anyhow::Error> {
-        // Inicializamos el pool de base de datos
+        // pool de conexiones a postgres
         let connection_pool = db::build_connection_pool(&configuration.database).await
             .expect("Falló la conexión a Postgres.");
 
         // Inicializamos Redis (Local o Upstash)
         let redis_cache = CacheStore::build(&configuration.redis);
 
-        // Definimos la dirección y puerto
+        // dirección y puerto donde escucha el servidor
         let address = format!(
             "{}:{}",
             configuration.application.host, configuration.application.port
@@ -37,7 +37,6 @@ impl Application {
         let listener = TcpListener::bind(address)?;
         let port = listener.local_addr().unwrap().port();
         
-        // Arrancamos el servidor
         let server = run(listener, connection_pool, redis_cache)?;
 
         Ok(Self { port, server })
@@ -57,20 +56,20 @@ pub fn run(
     db_pool: PgPool,
     redis_cache: CacheStore,
 ) -> Result<Server, std::io::Error> {
-    // Envolvemos el pool en un Data arc para compartirlo entre threads de actix
+    // envolvemos en Data<Arc> para compartir entre threads de actix
     let db_pool = web::Data::new(db_pool);
     let redis_cache = web::Data::new(redis_cache);
     
     let server = HttpServer::new(move || {
         let cors = Cors::default()
-            .allow_any_origin() // En producción deberías restringir esto
+            .allow_any_origin() // en prod hay que restringir esto
             .allow_any_method()
             .allow_any_header()
             .max_age(3600);
 
         App::new()
             .wrap(cors)
-            .wrap(TracingLogger::default()) // Middleware de Logging Estructurado
+            .wrap(TracingLogger::default()) // logging estructurado
             .route("/health_check", web::get().to(handlers::health_check))
             .configure(routes::configure_routes)
             .app_data(db_pool.clone())

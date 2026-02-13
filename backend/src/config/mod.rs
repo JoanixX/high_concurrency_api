@@ -92,6 +92,7 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
 
     let environment_filename = format!("{}.yaml", environment.as_str());
     
+    // cargamos: base.yaml -> entorno.yaml -> variables de entorno con prefijo APP__
     let mut settings: Settings = Config::builder()
         .add_source(File::from(configuration_directory.join("base.yaml")))
         .add_source(File::from(configuration_directory.join(environment_filename)))
@@ -99,8 +100,7 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
         .build()?
         .try_deserialize()?;
 
-    // Inyectamos Upstash desde variables de entorno directas
-    // (no usan el prefijo APP_ porque son credenciales de servicio externo)
+    // upstash se inyecta directo desde env vars (no usan prefijo APP_)
     if let Ok(url) = std::env::var("UPSTASH_REDIS_REST_URL") {
         settings.redis.upstash_redis_rest_url = Some(url);
     }
@@ -108,7 +108,7 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
         settings.redis.upstash_redis_rest_token = Some(Secret::new(token));
     }
 
-    // Override database settings desde DATABASE_URL si existe
+    // si existe DATABASE_URL, la parseamos y sobreescribimos los campos del struct
     if let Ok(db_url) = std::env::var("DATABASE_URL") {
         if let Some(parsed) = parse_database_url(&db_url) {
             settings.database.host = parsed.host;
@@ -134,8 +134,7 @@ struct ParsedDbUrl {
 }
 
 fn parse_database_url(url: &str) -> Option<ParsedDbUrl> {
-    // Parseamos: postgres(ql)://user:pass@host:port/dbname?params
-    let url = url.split('?').next()?; // Ignoramos query params
+    let url = url.split('?').next()?;
     let url = url.strip_prefix("postgres://")
         .or_else(|| url.strip_prefix("postgresql://"))?;
     

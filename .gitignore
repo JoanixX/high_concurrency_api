@@ -4,17 +4,19 @@
 # Archivos de respaldo
 **/*.rs.bk
 *.swp
+
+# migraciones sql
 backend/migrations/*.sql
 docker-compose.prod.yml
 
-# Variables de entorno y secretos
+# secretos y variables de entorno
 .env
 .env.local
 .env.production
 .env.*.local
 .env.*.production
 
-# SÍ versionamos .env.example (plantilla pública sin secretos)
+# sí versionamos la plantilla pública
 !.env.example
 
 # Configuración del editor

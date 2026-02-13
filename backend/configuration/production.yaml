@@ -5,7 +5,7 @@ application:
 database:
   require_ssl: true
 
-# En producción, las variables de Upstash se inyectan via env vars:
+# en producción, las variables de upstash se inyectan via env vars:
 #   APP_REDIS__UPSTASH_REDIS_REST_URL
 #   APP_REDIS__UPSTASH_REDIS_REST_TOKEN
-# El config crate las mapea automáticamente al struct RedisSettings.
+# el config crate las mapea automáticamente al struct RedisSettings

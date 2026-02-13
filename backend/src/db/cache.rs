@@ -4,6 +4,7 @@ use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
 use crate::config::RedisSettings;
 
+// almacén de cache con dos variantes: tcp local o rest (upstash)
 #[derive(Clone)]
 pub enum CacheStore {
     Tcp(Client),
@@ -30,6 +31,7 @@ impl CacheStore {
         }
     }
 
+    // guarda un valor con expiración en segundos
     pub async fn set(&self, key: &str, value: &str, expire_secs: usize) -> anyhow::Result<()> {
         match self {
             CacheStore::Tcp(client) => {
@@ -61,6 +63,7 @@ impl CacheStore {
         }
     }
 
+    // obtiene un valor por clave, devuelve None si no existe
     pub async fn get(&self, key: &str) -> anyhow::Result<Option<String>> {
         match self {
             CacheStore::Tcp(client) => {
