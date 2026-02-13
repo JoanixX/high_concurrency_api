@@ -7,7 +7,7 @@ database:
   port: 5432
   username: "postgres"
   password: "password"
-  database_name: "newsletter"
+  database_name: "betting_db"
   require_ssl: false
 
 redis:

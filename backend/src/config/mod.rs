@@ -75,26 +75,88 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
     let base_path = std::env::current_dir().expect("Falló al determinar el directorio actual");
     let configuration_directory = base_path.join("configuration");
 
-    // Detectamos el entorno de ejecución (local, production)
-    // Por defecto usamos 'local' si no se especifica nada
+    // Cargamos el .env apropiado según el entorno
     let environment: Environment = std::env::var("APP_ENVIRONMENT")
         .unwrap_or_else(|_| "local".into())
         .try_into()
         .expect("Falló al parsear APP_ENVIRONMENT.");
 
+    let env_file = match environment {
+        Environment::Local => ".env.local",
+        Environment::Production => ".env.production",
+    };
+    let env_path = base_path.join(env_file);
+    if env_path.exists() {
+        dotenvy::from_path(&env_path).ok();
+    }
+
     let environment_filename = format!("{}.yaml", environment.as_str());
     
-    let settings = Config::builder()
-        // Cargamos configuración base común a todos los entornos
+    let mut settings: Settings = Config::builder()
         .add_source(File::from(configuration_directory.join("base.yaml")))
-        // Cargamos la configuración específica del entorno (override)
         .add_source(File::from(configuration_directory.join(environment_filename)))
-        // Agregamos configuración desde variables de entorno
-        // Ej: APP_APPLICATION__PORT=5001 sobreescribe application.port
         .add_source(config::Environment::with_prefix("APP").separator("__"))
-        .build()?;
+        .build()?
+        .try_deserialize()?;
 
-    settings.try_deserialize::<Settings>()
+    // Inyectamos Upstash desde variables de entorno directas
+    // (no usan el prefijo APP_ porque son credenciales de servicio externo)
+    if let Ok(url) = std::env::var("UPSTASH_REDIS_REST_URL") {
+        settings.redis.upstash_redis_rest_url = Some(url);
+    }
+    if let Ok(token) = std::env::var("UPSTASH_REDIS_REST_TOKEN") {
+        settings.redis.upstash_redis_rest_token = Some(Secret::new(token));
+    }
+
+    // Override database settings desde DATABASE_URL si existe
+    if let Ok(db_url) = std::env::var("DATABASE_URL") {
+        if let Some(parsed) = parse_database_url(&db_url) {
+            settings.database.host = parsed.host;
+            settings.database.port = parsed.port;
+            settings.database.username = parsed.username;
+            settings.database.password = Secret::new(parsed.password);
+            settings.database.database_name = parsed.database_name;
+            if db_url.contains("sslmode=require") {
+                settings.database.require_ssl = true;
+            }
+        }
+    }
+
+    Ok(settings)
+}
+
+struct ParsedDbUrl {
+    host: String,
+    port: u16,
+    username: String,
+    password: String,
+    database_name: String,
+}
+
+fn parse_database_url(url: &str) -> Option<ParsedDbUrl> {
+    // Parseamos: postgres(ql)://user:pass@host:port/dbname?params
+    let url = url.split('?').next()?; // Ignoramos query params
+    let url = url.strip_prefix("postgres://")
+        .or_else(|| url.strip_prefix("postgresql://"))?;
+    
+    let (credentials, host_part) = url.split_once('@')?;
+    let (username, password) = credentials.split_once(':')?;
+    let (host_port, database_name) = host_part.split_once('/')?;
+    
+    let (host, port_str) = if host_port.contains(':') {
+        let (h, p) = host_port.rsplit_once(':')?;
+        (h, p)
+    } else {
+        (host_port, "5432")
+    };
+
+    Some(ParsedDbUrl {
+        host: host.to_string(),
+        port: port_str.parse().unwrap_or(5432),
+        username: username.to_string(),
+        password: password.to_string(),
+        database_name: database_name.to_string(),
+    })
 }
 
 pub enum Environment {

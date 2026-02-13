@@ -74,7 +74,7 @@ pub fn run(
             .route("/health_check", web::get().to(handlers::health_check))
             .configure(routes::configure_routes)
             .app_data(db_pool.clone())
-            .app_data(redis_client.clone())
+            .app_data(redis_cache.clone())
     })
     .listen(listener)?
     .run();
