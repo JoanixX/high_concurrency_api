@@ -1,20 +1,14 @@
-use actix_web::{web, HttpResponse};
-use sqlx::PgPool;
-use uuid::Uuid;
-use chrono::Utc;
-use crate::domain::models::BetTicket;
+// Adaptador primario http para el handler de apuestas
+// no hay lógica de negocio, solo traduce http a caso de uso y viceversa
 
-#[derive(serde::Deserialize)]
-pub struct ValidateBetRequest {
-    pub user_id: Uuid,
-    pub match_id: Uuid,
-    pub amount: f64,
-    pub odds: f64,
-}
+use actix_web::{web, HttpResponse};
+use crate::application::PlaceBetUseCase;
+use crate::domain::BetTicket;
+use super::dto::{ValidateBetRequest, PlaceBetResponse};
 
 #[tracing::instrument(
     name = "Validando una nueva apuesta",
-    skip(item, pool, cache),
+    skip(item, use_case),
     fields(
         user_id = %item.user_id,
         match_id = %item.match_id
@@ -22,9 +16,9 @@ pub struct ValidateBetRequest {
 )]
 pub async fn validate_bet(
     item: web::Json<ValidateBetRequest>,
-    pool: web::Data<PgPool>,
-    cache: web::Data<crate::db::cache::CacheStore>,
+    use_case: web::Data<PlaceBetUseCase>,
 ) -> HttpResponse {
+    // traducir dto a una entidad de dominio
     let ticket = BetTicket {
         user_id: item.user_id,
         match_id: item.match_id,
@@ -32,40 +26,19 @@ pub async fn validate_bet(
         odds: item.odds,
     };
 
-    // insertamos en la db
-    let bet_id = Uuid::new_v4();
-    let status_str = "VALIDATED"; 
-
-    match sqlx::query!(
-        r#"
-        INSERT INTO bets (id, user_id, match_id, amount, odds, status, created_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-        "#,
-        bet_id,
-        ticket.user_id,
-        ticket.match_id,
-        ticket.amount,
-        ticket.odds,
-        status_str,
-        Utc::now()
-    )
-    .execute(pool.get_ref())
-    .await
-    {
-        Ok(_) => {
-            tracing::info!("Apuesta validada y guardada correctamente");
-            
-            // guardamos el id de la última apuesta en cache por 60s
-            let cache_key = format!("last_bet:{}", ticket.user_id);
-            if let Err(e) = cache.set(&cache_key, &bet_id.to_string(), 60).await {
-                tracing::warn!("No se pudo actualizar la cache: {:?}", e);
-            }
-
-            HttpResponse::Ok().json(ticket)
-        },
-        Err(e) => {
-            tracing::error!("Failed to execute query: {:?}", e);
-            HttpResponse::InternalServerError().finish()
+    // Se manda al caso de uso
+    match use_case.execute(ticket).await {
+        Ok(result) => {
+            // se traduce el resultado y se devuelbe un dto
+            HttpResponse::Ok().json(PlaceBetResponse {
+                bet_id: result.bet_id,
+                user_id: result.ticket.user_id,
+                match_id: result.ticket.match_id,
+                amount: result.ticket.amount,
+                odds: result.ticket.odds,
+                status: result.status.as_str().to_string(),
+            })
         }
+        Err(e) => crate::errors::domain_error_to_response(e),
     }
 }
