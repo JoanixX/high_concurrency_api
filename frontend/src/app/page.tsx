@@ -8,7 +8,7 @@ export default function HomePage() {
           Motor de Validación de Apuestas
         </h1>
         <p className="mt-2 text-muted-foreground">
-          API de Alta Concurrencia — Fase 1: Arquitectura lista
+          API de Alta Concurrencia — Fase 3: Dashboard listo
         </p>
       </div>
     </main>
