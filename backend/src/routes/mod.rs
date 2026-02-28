@@ -1,3 +1,4 @@
+use actix_web::web;
 use crate::handlers::{health_check, validate_bet, register, login};
 
 pub fn configure_routes(cfg: &mut web::ServiceConfig) {

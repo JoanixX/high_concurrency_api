@@ -1,6 +1,7 @@
 pub mod config;
-pub mod db;
 pub mod domain;
+pub mod application;
+pub mod infrastructure;
 pub mod errors;
 pub mod handlers;
 pub mod middlewares;
@@ -9,11 +10,20 @@ pub mod telemetry;
 
 use actix_web::dev::Server;
 use actix_web::{web, App, HttpServer};
-use sqlx::PgPool;
 use std::net::TcpListener;
+use std::sync::Arc;
 use tracing_actix_web::TracingLogger;
 use actix_cors::Cors;
-use crate::db::cache::CacheStore;
+
+// infraestructura
+use crate::infrastructure::database;
+use crate::infrastructure::cache::RedisCacheAdapter;
+use crate::infrastructure::persistence::bet_repository::PostgresBetRepository;
+use crate::infrastructure::persistence::user_repository::PostgresUserRepository;
+use crate::infrastructure::security::Argon2Hasher;
+
+// casos de uso
+use crate::application::{PlaceBetUseCase, RegisterUserUseCase, LoginUserUseCase};
 
 pub struct Application {
     port: u16,
@@ -22,22 +32,33 @@ pub struct Application {
 
 impl Application {
     pub async fn build(configuration: config::Settings) -> Result<Self, anyhow::Error> {
-        // pool de conexiones a postgres
-        let connection_pool = db::build_connection_pool(&configuration.database).await
-            .expect("Falló la conexión a Postgres.");
+        // adaptadores secundarios (infraestructura)
+        let connection_pool = database::build_connection_pool(&configuration.database)
+            .await
+            .expect("falló la conexión a postgres");
 
-        // Inicializamos Redis (Local o Upstash)
-        let redis_cache = CacheStore::build(&configuration.redis);
+        let cache = RedisCacheAdapter::build(&configuration.redis);
 
-        // dirección y puerto donde escucha el servidor
+        // inyección de dependencias
+        // Construimos los casos de uso con sus puertos
+        let bet_repo = Arc::new(PostgresBetRepository::new(connection_pool.clone()));
+        let user_repo = Arc::new(PostgresUserRepository::new(connection_pool.clone()));
+        let hasher = Arc::new(Argon2Hasher::new());
+        let cache_port: Arc<dyn domain::ports::CachePort> = Arc::new(cache);
+
+        let place_bet_uc = PlaceBetUseCase::new(bet_repo, cache_port);
+        let register_uc = RegisterUserUseCase::new(user_repo.clone(), hasher.clone());
+        let login_uc = LoginUserUseCase::new(user_repo, hasher);
+
+        // direccion y puerto donde escucha el servidor
         let address = format!(
             "{}:{}",
             configuration.application.host, configuration.application.port
         );
         let listener = TcpListener::bind(address)?;
         let port = listener.local_addr().unwrap().port();
-        
-        let server = run(listener, connection_pool, redis_cache)?;
+
+        let server = run(listener, place_bet_uc, register_uc, login_uc)?;
 
         Ok(Self { port, server })
     }
@@ -53,13 +74,15 @@ impl Application {
 
 pub fn run(
     listener: TcpListener,
-    db_pool: PgPool,
-    redis_cache: CacheStore,
+    place_bet_uc: PlaceBetUseCase,
+    register_uc: RegisterUserUseCase,
+    login_uc: LoginUserUseCase,
 ) -> Result<Server, std::io::Error> {
-    // envolvemos en Data<Arc> para compartir entre threads de actix
-    let db_pool = web::Data::new(db_pool);
-    let redis_cache = web::Data::new(redis_cache);
-    
+    // envolvemos los casos de uso en Data para compartir entre threads de actix
+    let place_bet_uc = web::Data::new(place_bet_uc);
+    let register_uc = web::Data::new(register_uc);
+    let login_uc = web::Data::new(login_uc);
+
     let server = HttpServer::new(move || {
         let cors = Cors::default()
             .allow_any_origin() // en prod hay que restringir esto
@@ -69,11 +92,11 @@ pub fn run(
 
         App::new()
             .wrap(cors)
-            .wrap(TracingLogger::default()) // logging estructurado
-            .route("/health_check", web::get().to(handlers::health_check))
+            .wrap(TracingLogger::default())
             .configure(routes::configure_routes)
-            .app_data(db_pool.clone())
-            .app_data(redis_cache.clone())
+            .app_data(place_bet_uc.clone())
+            .app_data(register_uc.clone())
+            .app_data(login_uc.clone())
     })
     .listen(listener)?
     .run();
