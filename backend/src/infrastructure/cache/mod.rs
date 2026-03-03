@@ -51,7 +51,7 @@ impl CachePort for RedisCacheAdapter {
                     .get_async_connection()
                     .await
                     .map_err(|e| DomainError::Internal(e.to_string()))?;
-                conn.set_ex(key, value, expire_secs)
+                conn.set_ex(key, value, expire_secs as u64)
                     .await
                     .map_err(|e| DomainError::Internal(e.to_string()))?;
                 Ok(())
