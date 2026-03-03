@@ -21,7 +21,8 @@ use crate::infrastructure::cache::RedisCacheAdapter;
 use crate::infrastructure::persistence::bet_repository::PostgresBetRepository;
 use crate::infrastructure::persistence::user_repository::PostgresUserRepository;
 use crate::infrastructure::redis_repo::RedisBettingStateRepository;
-// es temporal para hacer compilar la inyección, esto idealmente 
+use crate::infrastructure::redis_pubsub::spawn_redis_pubsub_worker;
+// es temporal para hacer compilar la inyección, esto idealmente  
 // viviría en un modulo propio
 struct PostgresMatchRepository;
 #[async_trait::async_trait]
@@ -72,6 +73,10 @@ impl Application {
         let login_uc = LoginUserUseCase::new(user_repo, hasher);
 
         let ws_manager = ConnectionManager::new();
+
+        // se levanta el worker asincrono de pub/sub UNA SOLA VEZ
+        // compartiéndole el ws_manager
+        spawn_redis_pubsub_worker(configuration.redis.connection_string(), ws_manager.clone());
 
         // direccion y puerto donde escucha el servidor
         let address = format!(
