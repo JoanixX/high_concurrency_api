@@ -6,10 +6,37 @@ use crate::domain::DomainError;
 
 // convierte un error de dominio en httpResponse
 pub fn domain_error_to_response(error: DomainError) -> HttpResponse {
-    match &error {
+    match error {
         DomainError::Validation(msg) => {
             HttpResponse::BadRequest().json(serde_json::json!({
                 "error": "Error de validación",
+                "message": msg
+            }))
+        }
+        DomainError::InsufficientFunds { available, required } => {
+            HttpResponse::PaymentRequired().json(serde_json::json!({
+                "error": "Saldo insuficiente",
+                "available_cents": available.amount_cents,
+                "required_cents": required.amount_cents
+            }))
+        }
+        DomainError::MatchNotActive { match_id, status } => {
+            HttpResponse::Conflict().json(serde_json::json!({
+                "error": "El partido no está activo para apuestas",
+                "match_id": match_id.0.to_string(),
+                "current_status": format!("{:?}", status)
+            }))
+        }
+        DomainError::OddsChanged { requested, current } => {
+            HttpResponse::Conflict().json(serde_json::json!({
+                "error": "Las cuotas han cambiado",
+                "requested_odds": requested.to_decimal(),
+                "current_odds": current.to_decimal()
+            }))
+        }
+        DomainError::InvalidAmount(msg) => {
+            HttpResponse::BadRequest().json(serde_json::json!({
+                "error": "Monto inválido",
                 "message": msg
             }))
         }

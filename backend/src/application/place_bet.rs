@@ -3,65 +3,73 @@
 
 use std::sync::Arc;
 use uuid::Uuid;
-use crate::domain::{BetTicket, BetStatus, DomainError};
-use crate::domain::ports::{BetRepository, CachePort};
+use crate::domain::{
+    Bet, BetId, MatchId, UserId, DomainError,
+    BetValidationPolicy, StandardBetValidationPolicy,
+};
+use crate::domain::ports::{BetRepository, MatchRepository, UserRepository, CachePort};
 
 pub struct PlaceBetUseCase {
     bet_repo: Arc<dyn BetRepository>,
+    match_repo: Arc<dyn MatchRepository>,
+    user_repo: Arc<dyn UserRepository>,
     cache: Arc<dyn CachePort>,
+    policy: StandardBetValidationPolicy,
 }
 
-// respuesta del caso de uso (no es un DTO HTTP)
+// respuesta del caso de uso
 #[derive(Debug)]
 pub struct PlaceBetResult {
-    pub bet_id: Uuid,
-    pub ticket: BetTicket,
-    pub status: BetStatus,
+    pub bet: Bet,
 }
 
 impl PlaceBetUseCase {
     pub fn new(
         bet_repo: Arc<dyn BetRepository>,
+        match_repo: Arc<dyn MatchRepository>,
+        user_repo: Arc<dyn UserRepository>,
         cache: Arc<dyn CachePort>,
     ) -> Self {
-        Self { bet_repo, cache }
+        Self { 
+            bet_repo, 
+            match_repo,
+            user_repo,
+            cache,
+            policy: StandardBetValidationPolicy::new(),
+        }
     }
 
-    pub async fn execute(&self, ticket: BetTicket) -> Result<PlaceBetResult, DomainError> {
-        // Validaciones de dominio
-        if ticket.amount <= 0.0 {
-            return Err(DomainError::Validation(
-                "el monto debe ser mayor a 0".to_string(),
-            ));
-        }
-        if ticket.odds <= 1.0 {
-            return Err(DomainError::Validation(
-                "las odds deben ser mayores a 1.0".to_string(),
-            ));
-        }
+    pub async fn execute(&self, mut bet: Bet) -> Result<PlaceBetResult, DomainError> {
+        // 1. obtener la informacion actual del partido para validar cuotas y estado
+        let sport_match = self.match_repo.find_by_id(bet.match_id).await?
+            .ok_or_else(|| DomainError::NotFound)?; // el partido no existe
 
-        let bet_id = Uuid::new_v4();
-        let status = BetStatus::Validated;
+        // 2. obtener el balance actual del usuario
+        let user_balance = self.user_repo.get_balance(bet.user_id).await?;
 
-        // persistir via puerto
-        self.bet_repo.save(bet_id, &ticket, &status).await?;
+        // 3. ejecutar las reglas de negocio (politica de validacion)
+        self.policy.validate(&bet, &sport_match, &user_balance)?;
+
+        // 4. si la validacion pasa, aceptar la apuesta
+        bet.accept();
+
+        // 5. persistir vía puerto
+        self.bet_repo.save(&bet).await?;
 
         tracing::info!(
-            bet_id = %bet_id,
-            user_id = %ticket.user_id,
+            bet_id = %bet.id,
+            user_id = %bet.user_id,
             "apuesta validada y persistida"
         );
 
-        // Cache de última apuesta (best-effort, no falla el caso de uso)
-        let cache_key = format!("last_bet:{}", ticket.user_id);
-        if let Err(e) = self.cache.set(&cache_key, &bet_id.to_string(), 60).await {
+        // 6. cache de ultima apuesta (best-effort)
+        let cache_key = format!("last_bet:{}", bet.user_id);
+        if let Err(e) = self.cache.set(&cache_key, &bet.id.to_string(), 60).await {
             tracing::warn!("no se pudo actualizar la cache: {:?}", e);
         }
 
         Ok(PlaceBetResult {
-            bet_id,
-            ticket,
-            status,
+            bet,
         })
     }
 }

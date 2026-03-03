@@ -42,12 +42,12 @@ impl RegisterUserUseCase {
 
         // hashear vía puerto
         let password_hash = self.hasher.hash(password)?;
-        let user_id = Uuid::new_v4();
+        let user_id = crate::domain::UserId::from(Uuid::new_v4());
 
         // persistir vía puerto
         self.user_repo.save(user_id, email, &password_hash, name).await?;
         tracing::info!(user_id = %user_id, "usuario registrado");
 
-        Ok(RegisterResult { user_id })
+        Ok(RegisterResult { user_id: user_id.0 })
     }
 }

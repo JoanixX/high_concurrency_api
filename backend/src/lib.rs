@@ -20,6 +20,15 @@ use crate::infrastructure::database;
 use crate::infrastructure::cache::RedisCacheAdapter;
 use crate::infrastructure::persistence::bet_repository::PostgresBetRepository;
 use crate::infrastructure::persistence::user_repository::PostgresUserRepository;
+// es temporal para hacer compilar la inyección, esto idealmente 
+// viviría en un modulo propio
+struct PostgresMatchRepository;
+#[async_trait::async_trait]
+impl crate::domain::ports::MatchRepository for PostgresMatchRepository {
+    async fn find_by_id(&self, _id: crate::domain::MatchId) -> Result<Option<crate::domain::SportMatch>, crate::domain::DomainError> {
+        Ok(None) // mock por ahora
+    }
+}
 use crate::infrastructure::security::Argon2Hasher;
 
 // casos de uso
@@ -42,11 +51,12 @@ impl Application {
         // inyección de dependencias
         // Construimos los casos de uso con sus puertos
         let bet_repo = Arc::new(PostgresBetRepository::new(connection_pool.clone()));
+        let match_repo = Arc::new(PostgresMatchRepository);
         let user_repo = Arc::new(PostgresUserRepository::new(connection_pool.clone()));
         let hasher = Arc::new(Argon2Hasher::new());
         let cache_port: Arc<dyn domain::ports::CachePort> = Arc::new(cache);
 
-        let place_bet_uc = PlaceBetUseCase::new(bet_repo, cache_port);
+        let place_bet_uc = PlaceBetUseCase::new(bet_repo, match_repo, user_repo.clone(), cache_port);
         let register_uc = RegisterUserUseCase::new(user_repo.clone(), hasher.clone());
         let login_uc = LoginUserUseCase::new(user_repo, hasher);
 
