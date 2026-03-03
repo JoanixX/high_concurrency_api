@@ -40,7 +40,7 @@ pub async fn validate_bet(
     match use_case.execute(bet).await {
         Ok(result) => {
             // se traduce la entidad rica a un dto simple
-            HttpResponse::Ok().json(PlaceBetResponse {
+            HttpResponse::Created().json(PlaceBetResponse {
                 bet_id: result.bet.id.0,
                 user_id: result.bet.user_id.0,
                 match_id: result.bet.match_id.0,
