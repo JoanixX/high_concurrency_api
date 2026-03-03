@@ -7,31 +7,34 @@ use super::money::Money;
 
 #[derive(Debug, Error)]
 pub enum DomainError {
-    #[error("error de validación: {0}")]
+    #[error("Error de validación: {0}")]
     Validation(String),
 
-    #[error("entidad no encontrada")]
+    #[error("Entidad no encontrada")]
     NotFound,
 
-    #[error("credenciales inválidas")]
+    #[error("Credenciales inválidas")]
     AuthenticationFailed,
 
-    #[error("entidad duplicada: {0}")]
+    #[error("Entidad duplicada: {0}")]
     Duplicate(String),
 
-    #[error("error interno: {0}")]
+    #[error("Error interno: {0}")]
     Internal(String),
 
     // Nuevos errores de negocio específicos
-    #[error("saldo insuficiente. disponible: {available:?}, requerido: {required:?}")]
+    #[error("Saldo insuficiente. Disponible: {available:?}, Requerido: {required:?}")]
     InsufficientFunds { available: Money, required: Money },
 
-    #[error("el partido no está activo. estado actual: {status:?}")]
+    #[error("El partido no está activo. Estado actual: {status:?}")]
     MatchNotActive { match_id: MatchId, status: MatchStatus },
 
-    #[error("las cuotas han cambiado. solicitadas: {requested:?}, actuales: {current:?}")]
+    #[error("Las cuotas han cambiado. Solicitadas: {requested:?}, Actuales: {current:?}")]
     OddsChanged { requested: Odds, current: Odds },
 
-    #[error("monto de apuesta inválido: {0}")]
+    #[error("Monto de apuesta inválido: {0}")]
     InvalidAmount(String),
+
+    #[error("Falla de infraestructura: {0}")]
+    InfrastructureError(String),
 }

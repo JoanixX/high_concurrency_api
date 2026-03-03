@@ -57,3 +57,18 @@ pub trait PasswordHasher: Send + Sync {
     fn hash(&self, password: &str) -> Result<String, DomainError>;
     fn verify(&self, password: &str, hash: &str) -> Result<bool, DomainError>;
 }
+
+// Puerto de estado de apuestas de alta velocidad (Redis)
+#[async_trait]
+pub trait BettingStateRepository: Send + Sync {
+    // mete la apuesta y verifica atómicamente que el saldo sea mayor o igual al amount
+    // y que las expected_odds coincidan con las actuales en memoria.
+    async fn place_bet_atomically(
+        &self,
+        bet_id: BetId,
+        user_id: UserId,
+        match_id: MatchId,
+        amount: crate::domain::Money,
+        expected_odds: crate::domain::Odds,
+    ) -> Result<(), DomainError>;
+}
