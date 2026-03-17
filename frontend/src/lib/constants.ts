@@ -10,3 +10,23 @@ export const ENDPOINTS = {
   REGISTER: '/register',
   LOGIN: '/login',
 } as const;
+
+export const BET_STATUS = {
+  PENDING: 'Pending',
+  ACCEPTED: 'Accepted',
+  REJECTED: 'Rejected',
+} as const;
+
+export const MATCH_STATUS = {
+  NOT_STARTED: 'NotStarted',
+  IN_PLAY: 'InPlay',
+  FINISHED: 'Finished',
+  SUSPENDED: 'Suspended',
+} as const;
+
+export const WS_EVENTS = {
+  BET_ACCEPTED: 'bet:accepted',
+  BET_REJECTED: 'bet:rejected',
+  ODDS_UPDATED: 'odds:updated',
+  MATCH_STATUS_CHANGED: 'match:status_changed',
+} as const;

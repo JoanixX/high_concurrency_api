@@ -1,4 +1,5 @@
 // refleja backend/src/domain/models.rs
+import { BET_STATUS, MATCH_STATUS, WS_EVENTS } from '@/lib/constants';
 
 // Apuestas
 export interface BetTicket {
@@ -8,7 +9,7 @@ export interface BetTicket {
   odds: number;       // f64
 }
 
-export type BetStatus = 'Pending' | 'Validated' | 'Rejected';
+export type BetStatus = typeof BET_STATUS[keyof typeof BET_STATUS];
 
 export interface ValidateBetRequest {
   user_id: string;
@@ -75,10 +76,10 @@ export interface ActivityLogEntry {
 
 // Eventos de Websocket
 export type WSEventType =
-  | 'bet:validated'
-  | 'bet:rejected'
-  | 'odds:updated'
-  | 'match:status_changed';
+  | typeof WS_EVENTS.BET_ACCEPTED
+  | typeof WS_EVENTS.BET_REJECTED
+  | typeof WS_EVENTS.ODDS_UPDATED
+  | typeof WS_EVENTS.MATCH_STATUS_CHANGED;
 
 // Payload compartido de eventos de apuesta
 export interface BetEventPayload {
@@ -90,18 +91,18 @@ export interface BetEventPayload {
   status: BetStatus;
 }
 
-export interface WSBetValidatedEvent {
-  type: 'bet:validated';
+export interface WSBetAcceptedEvent {
+  type: typeof WS_EVENTS.BET_ACCEPTED;
   payload: BetEventPayload;
 }
 
 export interface WSBetRejectedEvent {
-  type: 'bet:rejected';
+  type: typeof WS_EVENTS.BET_REJECTED;
   payload: BetEventPayload;
 }
 
 export interface WSOddsUpdate {
-  type: 'odds:updated';
+  type: typeof WS_EVENTS.ODDS_UPDATED;
   payload: {
     match_id: string;
     odds: number;
@@ -109,22 +110,22 @@ export interface WSOddsUpdate {
   };
 }
 
-export type MatchStatus = 'upcoming' | 'live' | 'finished' | 'suspended';
+export type MatchStatus = typeof MATCH_STATUS[keyof typeof MATCH_STATUS];
 
 export interface WSMatchStatusEvent {
-  type: 'match:status_changed';
+  type: typeof WS_EVENTS.MATCH_STATUS_CHANGED;
   payload: {
     match_id: string;
     status: MatchStatus;
   };
 }
 
-export type WSEvent = WSBetValidatedEvent | WSBetRejectedEvent | WSOddsUpdate | WSMatchStatusEvent;
+export type WSEvent = WSBetAcceptedEvent | WSBetRejectedEvent | WSOddsUpdate | WSMatchStatusEvent;
 
 // mapa de evento que va a ser el payload para tipado estricto del event emitter
 export interface WSEventPayloadMap {
-  'bet:validated': BetEventPayload;
-  'bet:rejected': BetEventPayload;
-  'odds:updated': WSOddsUpdate['payload'];
-  'match:status_changed': WSMatchStatusEvent['payload'];
+  [WS_EVENTS.BET_ACCEPTED]: BetEventPayload;
+  [WS_EVENTS.BET_REJECTED]: BetEventPayload;
+  [WS_EVENTS.ODDS_UPDATED]: WSOddsUpdate['payload'];
+  [WS_EVENTS.MATCH_STATUS_CHANGED]: WSMatchStatusEvent['payload'];
 }
