@@ -36,8 +36,11 @@ use crate::infrastructure::security::Argon2Hasher;
 // casos de uso
 use crate::application::{PlaceBetUseCase, RegisterUserUseCase, LoginUserUseCase};
 
-// web sockets
+// ws
 use crate::handlers::ws::manager::ConnectionManager;
+
+// workers
+use crate::infrastructure::workers::bet_persister::spawn_bet_persister_worker;
 
 pub struct Application {
     port: u16,
@@ -66,7 +69,7 @@ impl Application {
         let user_repo = Arc::new(PostgresUserRepository::new(connection_pool.clone()));
         let hasher = Arc::new(Argon2Hasher::new());
         let cache_port: Arc<dyn domain::ports::CachePort> = Arc::new(cache);
-        let bet_state_repo = Arc::new(RedisBettingStateRepository::new(redis_pool));
+        let bet_state_repo = Arc::new(RedisBettingStateRepository::new(redis_pool.clone()));
 
         let place_bet_uc = PlaceBetUseCase::new(bet_state_repo, cache_port);
         let register_uc = RegisterUserUseCase::new(user_repo.clone(), hasher.clone());
@@ -77,6 +80,9 @@ impl Application {
         // se levanta el worker asincrono de pub/sub UNA SOLA VEZ
         // compartiéndole el ws_manager
         spawn_redis_pubsub_worker(configuration.redis.connection_string(), ws_manager.clone());
+
+        // se levanta el persister que consume el stream y guarda persistente en postgres
+        spawn_bet_persister_worker(redis_pool.clone(), connection_pool.clone());
 
         // direccion y puerto donde escucha el servidor
         let address = format!(
