@@ -14,6 +14,7 @@ use std::net::TcpListener;
 use std::sync::Arc;
 use tracing_actix_web::TracingLogger;
 use actix_cors::Cors;
+use actix_governor::Governor;
 
 // infraestructura
 use crate::infrastructure::database;
@@ -84,6 +85,9 @@ impl Application {
         // se levanta el persister que consume el stream y guarda persistente en postgres
         spawn_bet_persister_worker(redis_pool.clone(), connection_pool.clone());
 
+        // instanciar el limitador de requests una sola vez 
+        let rate_limit_config = crate::middlewares::rate_limit::build_rate_limiter();
+
         // direccion y puerto donde escucha el servidor
         let address = format!(
             "{}:{}",
@@ -92,7 +96,7 @@ impl Application {
         let listener = TcpListener::bind(address)?;
         let port = listener.local_addr().unwrap().port();
 
-        let server = run(listener, place_bet_uc, register_uc, login_uc, ws_manager)?;
+        let server = run(listener, place_bet_uc, register_uc, login_uc, ws_manager, rate_limit_config)?;
 
         Ok(Self { port, server })
     }
@@ -112,6 +116,7 @@ pub fn run(
     register_uc: RegisterUserUseCase,
     login_uc: LoginUserUseCase,
     ws_manager: ConnectionManager,
+    rate_limit_config: actix_governor::GovernorConfig<crate::middlewares::rate_limit::RealIpExtractor, actix_governor::governor::middleware::StateInformationMiddleware>,
 ) -> Result<Server, std::io::Error> {
     // envolvemos los casos de uso en Data para compartir entre threads de actix
     let place_bet_uc = web::Data::new(place_bet_uc);
@@ -125,11 +130,20 @@ pub fn run(
             .allow_any_method()
             .allow_any_header()
             .max_age(3600);
+            
+        // al clonar compartimos el mismo estado en memoria a 
+        // traves de todos los workers actix
+        let limit_cfg = rate_limit_config.clone();
 
         App::new()
             .wrap(cors)
             .wrap(TracingLogger::default())
             .configure(routes::configure_routes)
+            .service(
+                web::scope("")
+                    .wrap(Governor::new(&limit_cfg))
+                    .configure(routes::configure_rate_limited_routes)
+            )
             .app_data(place_bet_uc.clone())
             .app_data(register_uc.clone())
             .app_data(login_uc.clone())
