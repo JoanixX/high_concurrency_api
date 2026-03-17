@@ -14,7 +14,9 @@ API de alto rendimiento para la validación de apuestas en eventos en vivo, cons
 | Redis / Upstash   | caché de validación rápida                   |
 | Argon2            | hashing de contraseñas                       |
 | Tracing + Bunyan  | observabilidad y logging estructurado (JSON) |
-| Actix-Web-Prom    | métricas Prometheus                          |
+| Actix-Web-Prom    | métricas Prometheus `/metrics`               |
+| Actix-Governor    | rate limiting estricto por IP                |
+| Redis Streams     | event sourcing / Write-Behind Cache          |
 | Docker            | contenedorización                            |
 | k6                | testing de carga                             |
 
@@ -112,13 +114,14 @@ backend/
 │   │   ├── dto.rs              (request/response DTOs HTTP)
 │   │   ├── betting.rs          (HTTP → PlaceBetUseCase → HTTP)
 │   │   ├── auth.rs             (HTTP → RegisterUser/LoginUser → HTTP)
+│   │   ├── ws/                 (Websocket manager con instrumentación)
 │   │   └── health_check.rs     (endpoint de salud)
 │   ├── errors/                 ← mapeo DomainError → HttpResponse
 │   ├── config/                 ← configuración multi-entorno (YAML + env vars)
-│   ├── middlewares/            ← middlewares personalizados
-│   ├── routes/                 ← definición de rutas
-│   ├── telemetry/              ← tracing estructurado (Bunyan JSON)
-│   ├── lib.rs                  ← composition root (DI)
+│   ├── middlewares/            ← middlewares personalizados (Rate Limiter)
+│   ├── routes/                 ← definición de rutas globales
+│   ├── telemetry/              ← tracing y métricas Prometheus configuradas
+│   ├── lib.rs                  ← composition root (DI y setup de workers asíncronos)
 │   └── main.rs                 ← punto de entrada
 ├── configuration/
 │   ├── base.yaml               (config local por defecto)
@@ -130,18 +133,24 @@ backend/
 └── Dockerfile
 ```
 
-## 🔄 Flujo de una Apuesta
+## 🔄 Flujo de una Apuesta (Write-Behind Cache)
+
+Para garantizar latencia submilisegundo y prevenir bloqueos en la base de datos bajo alta carga, el sistema utiliza **Eventual Consistency** mediante un patrón Write-Behind Cache con Redis Streams:
 
 ```
-HTTP POST /bets
+[Cliente] HTTP POST /bets
+  → middlewares/rate_limit.rs (valida 5 req/s por IP)
   → handlers/betting.rs (parsea DTO, traduce a BetTicket)
-    → application/place_bet.rs (valida reglas de dominio)
+    → application/place_bet.rs (valida límite y balance vs Caché/DB)
       → domain/ports::BetRepository.save() (trait)
-        → infrastructure/persistence/bet_repository.rs (INSERT SQL)
-      → domain/ports::CachePort.set() (trait)
-        → infrastructure/cache/ (Redis/Upstash SET)
+        → infrastructure/redis_repo.rs (Publica a Redis Stream `bets_stream`)
     ← PlaceBetResult
-  ← HttpResponse::Ok(PlaceBetResponse)
+  ← [Respuesta Inmediata] HttpResponse::Ok(PlaceBetResponse)
+
+[Background Worker (tokio::spawn)]
+  → infrastructure/workers/bet_persister.rs (XREADGROUP desde Redis)
+  → Procesa el JSON y ejecuta `INSERT` en PostgreSQL (sqlx)
+  → Envia `XACK` a Redis al hacer commit.
 ```
 
 ## 🚀 Ejecución Local
@@ -161,7 +170,15 @@ cargo run --release
 
 la API estará disponible en `http://localhost:8000`.
 
-## 🧪 Load Testing con k6
+## 🧪 Testing y Validación (End-to-End)
+
+Los tests se ejecutan programáticamente integrándose a la infraestructura de host/entorno (Postgres + Redis). En lugar de mocks poco fiables, probamos el pipeline HTTP con los *background workers* activos y comprobamos la aserción en Postgres mediante técnica de "Polling" determinista:
+
+```bash
+cargo test --test api_integration_test
+```
+
+## 🔥 Load Testing con k6
 
 ```bash
 # requiere k6 instalado localmente
@@ -198,11 +215,10 @@ ver `.env.example` para la plantilla con todas las variables necesarias y cómo 
 - **`DomainError`**: errores de dominio tipados con `thiserror`, mapeados a HTTP en `errors/mod.rs`.
 - **composition root en `lib.rs`**: toda la inyección de dependencias centralizada en un solo lugar.
 
-## 📈 Escalabilidad
-
-- **horizontal**: la API es stateless y puede replicarse sin conflictos.
-- **base de datos**: PostgreSQL con pool de conexiones (SQLx) optimizado para alta concurrencia.
-- **testabilidad**: los puertos permiten inyectar mocks en tests sin necesidad de infraestructura real.
+- **horizontal**: la API es stateless y puede replicarse sin conflictos (estado distribuido en Redis).
+- **base de datos**: PostgreSQL actuando como fuente de la verdad asíncrona (Write-Behind).
+- **rate limiting compartido**: Token Bucket distribuido entre todos los workers y threads de Actix.
+- **observabilidad de alto nivel**: Combinación de `tracing` para distributed tracing de Petición/Respuesta, sumado a Gauges y Contadores custom en Prometheus (`/metrics`) previniendo Cardinality Traps.
 
 ---
 

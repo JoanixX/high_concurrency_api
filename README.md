@@ -9,6 +9,8 @@ Este proyecto no es solo una API CRUD; es un ejercicio de ingeniería de rendimi
 - **Arquitectura Hexagonal**: Dominio puro desacoplado de la infraestructura mediante puertos (traits) y adaptadores.
 - **Asincronía Extrema**: Construido sobre `Actix-Web` y `Tokio` para maximizar el uso de CPU.
 - **Validación con Baja Latencia**: Procesamiento sub-10ms por ticket de apuesta.
+- **Eventual Consistency (Write-Behind Cache)**: Inserciones asíncronas hacia Postgres valiéndose de un background worker consumiendo Redis Streams.
+- **SRE & Seguridad**: Middlewares para Rate Limiting (Token Bucket) y telemetría avanzada expuesta para Prometheus (`/metrics`).
 - **Pooling Eficiente**: Conexiones a base de datos (Postgres via SQLx) y caché (Redis) optimizadas.
 - **Observabilidad**: Tracing estructurado para identificar cuellos de botella en milisegundos.
 
