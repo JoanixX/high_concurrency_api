@@ -1,11 +1,10 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useLiveOdds } from '@/hooks/use-live-odds';
-import { useOddsChange } from '@/hooks/use-odds-change';
 import { useSelectionsStore } from '@/store/selections-store';
 import { cn } from '@/lib/utils';
 import { Plus, Check } from 'lucide-react';
@@ -28,7 +27,54 @@ const LiveOddsRow = React.memo(function LiveOddsRow({
   status,
 }: LiveOddsRowProps) {
   const { odds } = useLiveOdds(matchId);
-  const { direction, flashKey } = useOddsChange(odds);
+  const rowRef = useRef<HTMLTableRowElement>(null);
+  const priceRef = useRef<HTMLSpanElement>(null);
+  
+  // guardamos referencias mutables sin causar renders
+  const prevOddsRef = useRef<number | undefined>(odds);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // efecto flash O(1)
+  useEffect(() => {
+    // si no hay odds previos o no ha cambiado  no hacemos nada
+    if (prevOddsRef.current === undefined || odds === undefined || prevOddsRef.current === odds) {
+      prevOddsRef.current = odds;
+      return;
+    }
+
+    const isUp = odds > prevOddsRef.current;
+    
+    // Cleanup previo
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    // removemos clases de animaciones previas preventivamente
+    rowRef.current?.classList.remove('bg-green-500/10', 'bg-red-500/10');
+    priceRef.current?.classList.remove('text-green-500', 'text-red-500');
+
+    // nuevas clases
+    const baseColorClass = isUp ? 'bg-green-500/10' : 'bg-red-500/10';
+    const textColorClass = isUp ? 'text-green-500' : 'text-red-500';
+
+    rowRef.current?.classList.add(baseColorClass, 'transition-colors', 'duration-75');
+    priceRef.current?.classList.add(textColorClass, 'transition-colors', 'duration-75');
+
+    // Cleanup
+    timeoutRef.current = setTimeout(() => {
+      rowRef.current?.classList.remove(baseColorClass);
+      priceRef.current?.classList.remove(textColorClass);
+      // forzar que vuelvan sutiles usando clases default 
+      // con el tailwind base del componente
+    }, 500);
+
+    // guardamos el valor
+    prevOddsRef.current = odds;
+
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, [odds]);
 
   const selection = useSelectionsStore((s) => s.selection);
   const setSelection = useSelectionsStore((s) => s.setSelection);
@@ -57,14 +103,7 @@ const LiveOddsRow = React.memo(function LiveOddsRow({
       : 'secondary';
 
   return (
-    <TableRow
-      key={flashKey}
-      className={cn(
-        'transition-colors',
-        direction === 'up' && 'animate-flash-green',
-        direction === 'down' && 'animate-flash-red',
-      )}
-    >
+    <TableRow ref={rowRef}>
       <TableCell className="font-medium">
         <div className="flex flex-col">
           <span>{homeTeam}</span>
@@ -83,13 +122,7 @@ const LiveOddsRow = React.memo(function LiveOddsRow({
       </TableCell>
 
       <TableCell className="text-right tabular-nums text-lg font-bold">
-        <span
-          className={cn(
-            'transition-colors duration-200',
-            direction === 'up' && 'text-green-500',
-            direction === 'down' && 'text-red-500',
-          )}
-        >
+        <span ref={priceRef}>
           {odds?.toFixed(2) ?? '—'}
         </span>
       </TableCell>

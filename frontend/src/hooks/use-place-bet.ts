@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { placeBet } from '@/lib/api';
 import { useBettingStore } from '@/store/betting-store';
 import type { ValidateBetRequest } from '@/types/domain';
+import { toast } from 'sonner';
 
 // la mutación para colocar apuesta:
 // 1. REST POST → backend valida y retorna bet_id
@@ -22,7 +23,7 @@ export function usePlaceBet() {
       return { result, latency, request: data };
     },
 
-    onSuccess: ({ result, request }) => {
+    onSuccess: ({ result, request, latency }) => {
       // movemos a pending, debemos esperar que se confirme con el WS
       addPendingBet(result.bet_id, {
         user_id: request.user_id,
@@ -33,6 +34,17 @@ export function usePlaceBet() {
 
       // invalidamos historial para que se refresque al navegar
       queryClient.invalidateQueries({ queryKey: ['bet-history'] });
+      
+      toast.success('Apuesta encolada', {
+        description: `La apuesta de $${request.amount} entra en la red... (${Math.round(latency)}ms)`,
+      });
+    },
+    
+    onError: (error: any) => {
+      const message = error.response?.data?.message || error.message || 'Error desconocido al validar';
+      toast.error('Rechazado por el motor', {
+        description: message,
+      });
     },
   });
 }
