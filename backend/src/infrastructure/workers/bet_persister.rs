@@ -135,6 +135,7 @@ async fn process_and_ack_bet(
     let bet_id_str = parse_str("bet_id").unwrap_or_default();
     let user_id_str = parse_str("user_id").unwrap_or_default();
     let match_id_str = parse_str("match_id").unwrap_or_default();
+    let selection_str = parse_str("selection").unwrap_or_default();
     let amount_str = parse_str("amount").unwrap_or_default();
     let odds_str = parse_str("odds").unwrap_or_default();
 
@@ -142,14 +143,17 @@ async fn process_and_ack_bet(
     let user_id = Uuid::parse_str(&user_id_str).unwrap_or_default();
     let match_id = Uuid::parse_str(&match_id_str).unwrap_or_default();
 
-    let amount_cents: i64 = amount_str.parse().unwrap_or(0);
-    let amount_decimal: f64 = (amount_cents as f64) / 100.0;
+    // no usamos decimales para la base de datos, se hacen los montos son 
+    // en centavos y los odds en bigint o numeric sin escala
 
+    // la bd fue migrada y el worker usa los string parseados a i64, asi que
+    // se pasan directo. En la db debe manejarse como un numero entero 
+    // o un numeric escalado
+    let amount_cents: i64 = amount_str.parse().unwrap_or(0);
     let odds_thousandths: i64 = odds_str.parse().unwrap_or(0);
-    let odds_decimal: f64 = (odds_thousandths as f64) / 1000.0;
 
     // validación basica para descartar mensajes erroneos
-    if bet_id.is_nil() || user_id.is_nil() {
+    if bet_id.is_nil() || user_id.is_nil() || selection_str.is_empty() {
         error!("Mensaje {} tiene valores erróneos o nulos. Ignorando malformación. {:?}", msg_id, map);
         let _: deadpool_redis::redis::RedisResult<()> = redis_conn.xack(STREAM_KEY, GROUP_NAME, &[&msg_id]).await;
         return;
@@ -157,16 +161,18 @@ async fn process_and_ack_bet(
 
     let res = sqlx::query(
         r#"
-        INSERT INTO bets (id, user_id, match_id, amount, odds, status, created_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        INSERT INTO bets (id, user_id, match_id, selection, amount, odds, status, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         ON CONFLICT (id) DO NOTHING
         "#,
     )
     .bind(bet_id)
     .bind(user_id)
     .bind(match_id)
-    .bind(amount_decimal)
-    .bind(odds_decimal)
+    .bind(selection_str)
+    // guardamos los centavos y odds o cuotas en milesimas
+    .bind(amount_cents)
+    .bind(odds_thousandths)
     .bind("ACCEPTED")
     .bind(Utc::now())
     .execute(db_pool)

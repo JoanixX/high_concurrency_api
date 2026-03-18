@@ -43,6 +43,7 @@ use crate::handlers::ws::manager::ConnectionManager;
 
 // workers
 use crate::infrastructure::workers::bet_persister::spawn_bet_persister_worker;
+use crate::infrastructure::workers::settlement_worker::spawn_settlement_worker;
 
 pub struct Application {
     port: u16,
@@ -85,6 +86,7 @@ impl Application {
 
         // levantamos el worker que consume el stream y guarda persistente en postgres
         spawn_bet_persister_worker(redis_pool.clone(), connection_pool.clone());
+        spawn_settlement_worker(redis_pool.clone(), connection_pool.clone());
 
         // instanciamos el limitador de requests una sola vez 
         let rate_limit_config = crate::middlewares::rate_limit::build_rate_limiter();
