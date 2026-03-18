@@ -44,6 +44,7 @@ use crate::handlers::ws::manager::ConnectionManager;
 // workers
 use crate::infrastructure::workers::bet_persister::spawn_bet_persister_worker;
 use crate::infrastructure::workers::settlement_worker::spawn_settlement_worker;
+use crate::infrastructure::workers::reconciliation_job::start_reconciliation_scheduler;
 
 pub struct Application {
     port: u16,
@@ -87,6 +88,13 @@ impl Application {
         // levantamos el worker que consume el stream y guarda persistente en postgres
         spawn_bet_persister_worker(redis_pool.clone(), connection_pool.clone());
         spawn_settlement_worker(redis_pool.clone(), connection_pool.clone());
+
+        // scheduler de reconciliacion de balances postgres vs redis
+        let _reconciliation_sched = start_reconciliation_scheduler(
+            &configuration.reconciliation_cron,
+            redis_pool.clone(),
+            connection_pool.clone(),
+        ).await?;
 
         // instanciamos el limitador de requests una sola vez 
         let rate_limit_config = crate::middlewares::rate_limit::build_rate_limiter();
