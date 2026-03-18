@@ -15,6 +15,14 @@ export const BET_STATUS = {
   PENDING: 'Pending',
   ACCEPTED: 'Accepted',
   REJECTED: 'Rejected',
+  WON: 'Won',
+  LOST: 'Lost',
+} as const;
+
+export const BET_SELECTION = {
+  HOME_WIN: 'HomeWin',
+  AWAY_WIN: 'AwayWin',
+  DRAW: 'Draw',
 } as const;
 
 export const MATCH_STATUS = {

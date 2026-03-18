@@ -1,19 +1,22 @@
 // refleja backend/src/domain/models.rs
-import { BET_STATUS, MATCH_STATUS, WS_EVENTS } from '@/lib/constants';
+import { BET_STATUS, BET_SELECTION, MATCH_STATUS, WS_EVENTS } from '@/lib/constants';
 
 // Apuestas
 export interface BetTicket {
-  user_id: string;    // UUID como string
-  match_id: string;   // UUID como string
-  amount: number;     // f64
-  odds: number;       // f64
+  user_id: string;
+  match_id: string;
+  selection: BetSelection;
+  amount: number;
+  odds: number;
 }
 
 export type BetStatus = typeof BET_STATUS[keyof typeof BET_STATUS];
+export type BetSelection = typeof BET_SELECTION[keyof typeof BET_SELECTION];
 
 export interface ValidateBetRequest {
   user_id: string;
   match_id: string;
+  selection: string;
   amount: number;
   odds: number;
 }
@@ -25,6 +28,7 @@ export interface BetHistoryEntry {
   bet_id: string;
   user_id: string;
   match_id: string;
+  selection: BetSelection;
   amount: number;
   odds: number;
   status: BetStatus;
@@ -34,6 +38,7 @@ export interface BetHistoryEntry {
 // respuesta al colocar apuesta (REST)
 export interface PlaceBetResponse {
   bet_id: string;
+  selection: BetSelection;
   status: BetStatus;
 }
 
