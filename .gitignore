@@ -6,7 +6,6 @@
 *.swp
 
 # migraciones sql
-backend/migrations/*.sql
 docker-compose.prod.yml
 
 # secretos y variables de entorno
