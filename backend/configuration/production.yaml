@@ -5,6 +5,9 @@ application:
 database:
   require_ssl: true
 
+# reconciliacion a las 03:00 AM todos los dias
+reconciliation_cron: "0 0 3 * * *"
+
 # en producción, las variables de upstash se inyectan via env vars:
 #   APP_REDIS__UPSTASH_REDIS_REST_URL
 #   APP_REDIS__UPSTASH_REDIS_REST_TOKEN

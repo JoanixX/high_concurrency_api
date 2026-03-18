@@ -13,3 +13,6 @@ database:
 redis:
   host: "127.0.0.1"
   port: 6379
+
+# cada minuto en dev, cambiar a "0 0 3 * * *" para las 03:00 AM en prod
+reconciliation_cron: "0 * * * * *"

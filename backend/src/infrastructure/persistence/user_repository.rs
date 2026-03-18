@@ -80,8 +80,14 @@ impl UserRepository for PostgresUserRepository {
     }
 
     async fn get_balance(&self, id: crate::domain::UserId) -> Result<crate::domain::Money, DomainError> {
-        // en la vida real se consulta la tabla de wallets/balances
-        // ahora hardcodificamos un saldo positivo para las pruebas locales
-        Ok(crate::domain::Money::new(1000000)) // 10,000.00 como balance inicial
+        use sqlx::Row;
+        let row = sqlx::query(r#"SELECT balance FROM users WHERE id = $1"#)
+            .bind(id.0)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(map_sqlx_error)?;
+
+        let balance: i64 = row.try_get("balance").unwrap_or(0);
+        Ok(crate::domain::Money::new(balance))
     }
 }

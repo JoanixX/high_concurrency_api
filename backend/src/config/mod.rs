@@ -9,6 +9,13 @@ pub struct Settings {
     pub application: ApplicationSettings,
     pub database: DatabaseSettings,
     pub redis: RedisSettings,
+    // expresion cron para el job de reconciliacion de balances
+    #[serde(default = "default_reconciliation_cron")]
+    pub reconciliation_cron: String,
+}
+
+fn default_reconciliation_cron() -> String {
+    "0 * * * * *".to_string()
 }
 
 #[derive(Deserialize)]
