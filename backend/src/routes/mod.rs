@@ -1,7 +1,5 @@
+use crate::handlers::{health_check, login, register, validate_bet, ws_upgrade_handler};
 use actix_web::web;
-use crate::handlers::{health_check, validate_bet, register, login, ws_upgrade_handler};
-use actix_governor::{Governor, GovernorConfig};
-use crate::middlewares::rate_limit::RealIpExtractor;
 
 pub fn configure_routes(cfg: &mut web::ServiceConfig) {
     // Endpoints de lectura / sin estado (sin rate limit de mutación)

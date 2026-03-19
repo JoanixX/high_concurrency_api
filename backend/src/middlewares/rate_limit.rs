@@ -34,7 +34,9 @@ impl KeyExtractor for RealIpExtractor {
 }
 
 // crea y configura el limitador de gobernadorcompartido
-pub fn build_rate_limiter() -> GovernorConfig<RealIpExtractor, actix_governor::governor::middleware::StateInformationMiddleware> {
+pub fn build_rate_limiter(
+) -> GovernorConfig<RealIpExtractor, actix_governor::governor::middleware::StateInformationMiddleware>
+{
     GovernorConfigBuilder::default()
         .requests_per_second(5)
         .burst_size(5)

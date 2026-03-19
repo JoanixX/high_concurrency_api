@@ -1,13 +1,13 @@
-use deadpool_redis::Pool;
-use deadpool_redis::redis::AsyncCommands;
-use deadpool_redis::redis::streams::{StreamReadOptions, StreamReadReply};
-use deadpool_redis::redis::ErrorKind;
-use sqlx::PgPool;
-use std::time::Duration;
 use chrono::Utc;
-use uuid::Uuid;
-use tracing::{info, error, debug};
+use deadpool_redis::redis::streams::{StreamReadOptions, StreamReadReply};
+use deadpool_redis::redis::AsyncCommands;
+use deadpool_redis::redis::ErrorKind;
+use deadpool_redis::Pool;
+use sqlx::PgPool;
 use std::collections::HashMap;
+use std::time::Duration;
+use tracing::{debug, error, info};
+use uuid::Uuid;
 
 const STREAM_KEY: &str = "bets_stream";
 const GROUP_NAME: &str = "bets_cg";
@@ -27,17 +27,21 @@ pub fn spawn_bet_persister_worker(redis_pool: Pool, db_pool: PgPool) {
         };
 
         // crear consumer group si no existe (mkstream crea el stream si no existe)
-        let group_created: deadpool_redis::redis::RedisResult<()> = deadpool_redis::redis::cmd("XGROUP")
-            .arg("CREATE")
-            .arg(STREAM_KEY)
-            .arg(GROUP_NAME)
-            .arg("$")
-            .arg("MKSTREAM")
-            .query_async(&mut *redis_conn)
-            .await;
+        let group_created: deadpool_redis::redis::RedisResult<()> =
+            deadpool_redis::redis::cmd("XGROUP")
+                .arg("CREATE")
+                .arg(STREAM_KEY)
+                .arg(GROUP_NAME)
+                .arg("$")
+                .arg("MKSTREAM")
+                .query_async(&mut *redis_conn)
+                .await;
 
         match group_created {
-            Ok(_) => info!("Consumer Group '{}' creado en el stream '{}'", GROUP_NAME, STREAM_KEY),
+            Ok(_) => info!(
+                "Consumer Group '{}' creado en el stream '{}'",
+                GROUP_NAME, STREAM_KEY
+            ),
             Err(e) => {
                 // error normal cuando el grupo ya existe (BUSYGROUP)
                 if e.kind() == ErrorKind::ExtensionError && e.to_string().contains("BUSYGROUP") {
@@ -66,7 +70,13 @@ pub fn spawn_bet_persister_worker(redis_pool: Pool, db_pool: PgPool) {
                     for stream_key in reply.keys {
                         for stream_id in stream_key.ids {
                             has_pel_messages = true;
-                            process_and_ack_bet(&mut redis_conn, &db_pool, stream_id.id, stream_id.map).await;
+                            process_and_ack_bet(
+                                &mut redis_conn,
+                                &db_pool,
+                                stream_id.id,
+                                stream_id.map,
+                            )
+                            .await;
                         }
                     }
                     if !has_pel_messages {
@@ -97,12 +107,18 @@ pub fn spawn_bet_persister_worker(redis_pool: Pool, db_pool: PgPool) {
                 Ok(reply) => {
                     for stream_key in reply.keys {
                         for stream_id in stream_key.ids {
-                            process_and_ack_bet(&mut redis_conn, &db_pool, stream_id.id, stream_id.map).await;
+                            process_and_ack_bet(
+                                &mut redis_conn,
+                                &db_pool,
+                                stream_id.id,
+                                stream_id.map,
+                            )
+                            .await;
                         }
                     }
                 }
                 Err(e) => {
-                    // los timeouts de block en streams no devuelven un error 
+                    // los timeouts de block en streams no devuelven un error
                     // tradicional, solo vacio
                     error!("Error leyendo stream (Nuevos mensajes): {}", e);
                     tokio::time::sleep(Duration::from_secs(2)).await;
@@ -143,19 +159,23 @@ async fn process_and_ack_bet(
     let user_id = Uuid::parse_str(&user_id_str).unwrap_or_default();
     let match_id = Uuid::parse_str(&match_id_str).unwrap_or_default();
 
-    // no usamos decimales para la base de datos, se hacen los montos son 
+    // no usamos decimales para la base de datos, se hacen los montos son
     // en centavos y los odds en bigint o numeric sin escala
 
     // la bd fue migrada y el worker usa los string parseados a i64, asi que
-    // se pasan directo. En la db debe manejarse como un numero entero 
+    // se pasan directo. En la db debe manejarse como un numero entero
     // o un numeric escalado
     let amount_cents: i64 = amount_str.parse().unwrap_or(0);
     let odds_thousandths: i64 = odds_str.parse().unwrap_or(0);
 
     // validación basica para descartar mensajes erroneos
     if bet_id.is_nil() || user_id.is_nil() || selection_str.is_empty() {
-        error!("Mensaje {} tiene valores erróneos o nulos. Ignorando malformación. {:?}", msg_id, map);
-        let _: deadpool_redis::redis::RedisResult<()> = redis_conn.xack(STREAM_KEY, GROUP_NAME, &[&msg_id]).await;
+        error!(
+            "Mensaje {} tiene valores erróneos o nulos. Ignorando malformación. {:?}",
+            msg_id, map
+        );
+        let _: deadpool_redis::redis::RedisResult<()> =
+            redis_conn.xack(STREAM_KEY, GROUP_NAME, &[&msg_id]).await;
         return;
     }
 
@@ -180,19 +200,26 @@ async fn process_and_ack_bet(
 
     match res {
         Ok(_) => {
-            // acknowledgment al stream solo si postgres hace el insert 
+            // acknowledgment al stream solo si postgres hace el insert
             // o entra por el on conflict clause
-            let ack_res: deadpool_redis::redis::RedisResult<()> = redis_conn.xack(STREAM_KEY, GROUP_NAME, &[&msg_id]).await;
+            let ack_res: deadpool_redis::redis::RedisResult<()> =
+                redis_conn.xack(STREAM_KEY, GROUP_NAME, &[&msg_id]).await;
             if let Err(e) = ack_res {
-                error!("Insertada bet {} en Postgres pero falló al hacer XACK del mensaje {} ({})", bet_id, msg_id, e);
+                error!(
+                    "Insertada bet {} en Postgres pero falló al hacer XACK del mensaje {} ({})",
+                    bet_id, msg_id, e
+                );
             } else {
                 info!("Apuesta {} persistida exitosamente. XACK enviado.", bet_id);
             }
         }
         Err(e) => {
-            error!("Error persistiendo apuesta {} en la base de datos: {:?}", bet_id, e);
+            error!(
+                "Error persistiendo apuesta {} en la base de datos: {:?}",
+                bet_id, e
+            );
             // si el query a db falla, deliberadamente no mandamos el xack
-            // para que en un rescate se retenga la insercion 
+            // para que en un rescate se retenga la insercion
             // y asi se evita pérdida de eventos criticos
         }
     }

@@ -1,6 +1,6 @@
 use config::{Config, File};
-use serde::Deserialize;
 use secrecy::{ExposeSecret, Secret};
+use serde::Deserialize;
 use serde_aux::field_attributes::deserialize_number_from_string;
 use std::convert::{TryFrom, TryInto};
 
@@ -98,11 +98,13 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
     }
 
     let environment_filename = format!("{}.yaml", environment.as_str());
-    
+
     // cargamos: base.yaml -> entorno.yaml -> variables de entorno con prefijo APP__
     let mut settings: Settings = Config::builder()
         .add_source(File::from(configuration_directory.join("base.yaml")))
-        .add_source(File::from(configuration_directory.join(environment_filename)))
+        .add_source(File::from(
+            configuration_directory.join(environment_filename),
+        ))
         .add_source(config::Environment::with_prefix("APP").separator("__"))
         .build()?
         .try_deserialize()?;
@@ -142,13 +144,14 @@ struct ParsedDbUrl {
 
 fn parse_database_url(url: &str) -> Option<ParsedDbUrl> {
     let url = url.split('?').next()?;
-    let url = url.strip_prefix("postgres://")
+    let url = url
+        .strip_prefix("postgres://")
         .or_else(|| url.strip_prefix("postgresql://"))?;
-    
+
     let (credentials, host_part) = url.split_once('@')?;
     let (username, password) = credentials.split_once(':')?;
     let (host_port, database_name) = host_part.split_once('/')?;
-    
+
     let (host, port_str) = if host_port.contains(':') {
         let (h, p) = host_port.rsplit_once(':')?;
         (h, p)

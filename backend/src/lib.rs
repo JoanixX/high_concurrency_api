@@ -1,50 +1,53 @@
+pub mod application;
 pub mod config;
 pub mod domain;
-pub mod application;
-pub mod infrastructure;
 pub mod errors;
 pub mod handlers;
+pub mod infrastructure;
 pub mod middlewares;
 pub mod routes;
 pub mod telemetry;
 
+use actix_cors::Cors;
+use actix_governor::Governor;
 use actix_web::dev::Server;
 use actix_web::{web, App, HttpServer};
+use actix_web_prom::PrometheusMetricsBuilder;
 use std::net::TcpListener;
 use std::sync::Arc;
 use tracing_actix_web::TracingLogger;
-use actix_cors::Cors;
-use actix_governor::Governor;
-use actix_web_prom::PrometheusMetricsBuilder;
 
 // infraestructura
-use crate::infrastructure::database;
 use crate::infrastructure::cache::RedisCacheAdapter;
+use crate::infrastructure::database;
 use crate::infrastructure::persistence::bet_repository::PostgresBetRepository;
 use crate::infrastructure::persistence::user_repository::PostgresUserRepository;
-use crate::infrastructure::redis_repo::RedisBettingStateRepository;
 use crate::infrastructure::redis_pubsub::spawn_redis_pubsub_worker;
-// es temporal para hacer compilar la inyección, esto idealmente  
+use crate::infrastructure::redis_repo::RedisBettingStateRepository;
+// es temporal para hacer compilar la inyección, esto idealmente
 // viviría en un modulo propio
 struct PostgresMatchRepository;
 #[async_trait::async_trait]
 impl crate::domain::ports::MatchRepository for PostgresMatchRepository {
-    async fn find_by_id(&self, _id: crate::domain::MatchId) -> Result<Option<crate::domain::SportMatch>, crate::domain::DomainError> {
+    async fn find_by_id(
+        &self,
+        _id: crate::domain::MatchId,
+    ) -> Result<Option<crate::domain::SportMatch>, crate::domain::DomainError> {
         Ok(None) // mock por ahora
     }
 }
 use crate::infrastructure::security::Argon2Hasher;
 
 // casos de uso
-use crate::application::{PlaceBetUseCase, RegisterUserUseCase, LoginUserUseCase};
+use crate::application::{LoginUserUseCase, PlaceBetUseCase, RegisterUserUseCase};
 
 // ws
 use crate::handlers::ws::manager::ConnectionManager;
 
 // workers
 use crate::infrastructure::workers::bet_persister::spawn_bet_persister_worker;
-use crate::infrastructure::workers::settlement_worker::spawn_settlement_worker;
 use crate::infrastructure::workers::reconciliation_job::start_reconciliation_scheduler;
+use crate::infrastructure::workers::settlement_worker::spawn_settlement_worker;
 
 pub struct Application {
     port: u16,
@@ -61,7 +64,8 @@ impl Application {
         let cache = RedisCacheAdapter::build(&configuration.redis);
 
         // pool de redis dedicado para alta concurrencia
-        let redis_pool_config = deadpool_redis::Config::from_url(configuration.redis.connection_string());
+        let redis_pool_config =
+            deadpool_redis::Config::from_url(configuration.redis.connection_string());
         let redis_pool = redis_pool_config
             .create_pool(Some(deadpool_redis::Runtime::Tokio1))
             .expect("Falló la creación del pool de redis");
@@ -94,9 +98,10 @@ impl Application {
             &configuration.reconciliation_cron,
             redis_pool.clone(),
             connection_pool.clone(),
-        ).await?;
+        )
+        .await?;
 
-        // instanciamos el limitador de requests una sola vez 
+        // instanciamos el limitador de requests una sola vez
         let rate_limit_config = crate::middlewares::rate_limit::build_rate_limiter();
 
         // instanciar métricas de prometheus (actix-web-prom)
@@ -116,7 +121,15 @@ impl Application {
         let listener = TcpListener::bind(address)?;
         let port = listener.local_addr().unwrap().port();
 
-        let server = run(listener, place_bet_uc, register_uc, login_uc, ws_manager, rate_limit_config, prometheus)?;
+        let server = run(
+            listener,
+            place_bet_uc,
+            register_uc,
+            login_uc,
+            ws_manager,
+            rate_limit_config,
+            prometheus,
+        )?;
 
         Ok(Self { port, server })
     }
@@ -136,7 +149,10 @@ pub fn run(
     register_uc: RegisterUserUseCase,
     login_uc: LoginUserUseCase,
     ws_manager: ConnectionManager,
-    rate_limit_config: actix_governor::GovernorConfig<crate::middlewares::rate_limit::RealIpExtractor, actix_governor::governor::middleware::StateInformationMiddleware>,
+    rate_limit_config: actix_governor::GovernorConfig<
+        crate::middlewares::rate_limit::RealIpExtractor,
+        actix_governor::governor::middleware::StateInformationMiddleware,
+    >,
     prometheus_middleware: actix_web_prom::PrometheusMetrics,
 ) -> Result<Server, std::io::Error> {
     // envolvemos los casos de uso en Data para compartir entre threads de actix
@@ -151,7 +167,7 @@ pub fn run(
             .allow_any_method()
             .allow_any_header()
             .max_age(3600);
-            
+
         // clonamos y compartimos el estado de memoria a
         // todos los workers actix para tener el mismo limite
         let limit_cfg = rate_limit_config.clone();
@@ -165,7 +181,7 @@ pub fn run(
             .service(
                 web::scope("")
                     .wrap(Governor::new(&limit_cfg))
-                    .configure(routes::configure_rate_limited_routes)
+                    .configure(routes::configure_rate_limited_routes),
             )
             .app_data(place_bet_uc.clone())
             .app_data(register_uc.clone())

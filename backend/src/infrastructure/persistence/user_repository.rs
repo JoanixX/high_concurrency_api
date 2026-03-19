@@ -1,12 +1,11 @@
-// Se creó un adaptador secundario con implementación postgres 
+// Se creó un adaptador secundario con implementación postgres
 // del puerto de usuarios
 
-use async_trait::async_trait;
-use sqlx::PgPool;
-use uuid::Uuid;
-use chrono::Utc;
+use crate::domain::ports::{UserRecord, UserRepository};
 use crate::domain::DomainError;
-use crate::domain::ports::{UserRepository, UserRecord};
+use async_trait::async_trait;
+use chrono::Utc;
+use sqlx::PgPool;
 
 pub struct PostgresUserRepository {
     pool: PgPool,
@@ -24,7 +23,7 @@ fn map_sqlx_error(e: sqlx::Error) -> DomainError {
         sqlx::Error::RowNotFound => DomainError::NotFound,
         sqlx::Error::Database(ref db_err) => {
             // se usa el código 23505, que es para una unique_violation en postgres
-            if db_err.code().map_or(false, |c| c == "23505") {
+            if db_err.code().is_some_and(|c| c == "23505") {
                 DomainError::Duplicate(db_err.message().to_string())
             } else {
                 DomainError::Internal(e.to_string())
@@ -63,14 +62,12 @@ impl UserRepository for PostgresUserRepository {
 
     async fn find_by_email(&self, email: &str) -> Result<Option<UserRecord>, DomainError> {
         use sqlx::Row;
-        
-        let row = sqlx::query(
-            r#"SELECT id, password_hash, name FROM users WHERE email = $1"#
-        )
-        .bind(email)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(map_sqlx_error)?;
+
+        let row = sqlx::query(r#"SELECT id, password_hash, name FROM users WHERE email = $1"#)
+            .bind(email)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(map_sqlx_error)?;
 
         Ok(row.map(|r| UserRecord {
             id: r.try_get("id").unwrap(),
@@ -79,7 +76,10 @@ impl UserRepository for PostgresUserRepository {
         }))
     }
 
-    async fn get_balance(&self, id: crate::domain::UserId) -> Result<crate::domain::Money, DomainError> {
+    async fn get_balance(
+        &self,
+        id: crate::domain::UserId,
+    ) -> Result<crate::domain::Money, DomainError> {
         use sqlx::Row;
         let row = sqlx::query(r#"SELECT balance FROM users WHERE id = $1"#)
             .bind(id.0)

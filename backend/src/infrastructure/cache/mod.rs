@@ -1,14 +1,14 @@
 // Se creó un adaptador secundario con implementación redis/upstash del puerto CachePort
 // soporta redis tcp local y upstash rest (producción serverless)
 
+use crate::config::RedisSettings;
+use crate::domain::ports::CachePort;
+use crate::domain::DomainError;
 use async_trait::async_trait;
 use redis::{AsyncCommands, Client};
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION};
 use secrecy::ExposeSecret;
 use serde::Deserialize;
-use crate::config::RedisSettings;
-use crate::domain::DomainError;
-use crate::domain::ports::CachePort;
 
 #[derive(Clone)]
 pub enum RedisCacheAdapter {
@@ -51,16 +51,12 @@ impl CachePort for RedisCacheAdapter {
                     .get_async_connection()
                     .await
                     .map_err(|e| DomainError::Internal(e.to_string()))?;
-                conn.set_ex(key, value, expire_secs as u64)
+                conn.set_ex::<_, _, ()>(key, value, expire_secs as u64)
                     .await
                     .map_err(|e| DomainError::Internal(e.to_string()))?;
                 Ok(())
             }
-            RedisCacheAdapter::Rest {
-                url,
-                token,
-                client,
-            } => {
+            RedisCacheAdapter::Rest { url, token, client } => {
                 let endpoint = format!("{}/SET/{}/{}/EX/{}", url, key, value, expire_secs);
                 let mut headers = HeaderMap::new();
                 headers.insert(
@@ -69,15 +65,24 @@ impl CachePort for RedisCacheAdapter {
                         .map_err(|e| DomainError::Internal(e.to_string()))?,
                 );
 
-                let response = client.post(&endpoint).headers(headers).send().await
+                let response = client
+                    .post(&endpoint)
+                    .headers(headers)
+                    .send()
+                    .await
                     .map_err(|e| DomainError::Internal(e.to_string()))?;
 
                 if response.status().is_success() {
                     Ok(())
                 } else {
-                    let err_text = response.text().await
+                    let err_text = response
+                        .text()
+                        .await
                         .map_err(|e| DomainError::Internal(e.to_string()))?;
-                    Err(DomainError::Internal(format!("Error en Upstash: {}", err_text)))
+                    Err(DomainError::Internal(format!(
+                        "Error en Upstash: {}",
+                        err_text
+                    )))
                 }
             }
         }
@@ -90,15 +95,13 @@ impl CachePort for RedisCacheAdapter {
                     .get_async_connection()
                     .await
                     .map_err(|e| DomainError::Internal(e.to_string()))?;
-                let val: Option<String> = conn.get(key).await
+                let val: Option<String> = conn
+                    .get(key)
+                    .await
                     .map_err(|e| DomainError::Internal(e.to_string()))?;
                 Ok(val)
             }
-            RedisCacheAdapter::Rest {
-                url,
-                token,
-                client,
-            } => {
+            RedisCacheAdapter::Rest { url, token, client } => {
                 let endpoint = format!("{}/GET/{}", url, key);
                 let mut headers = HeaderMap::new();
                 headers.insert(
@@ -107,7 +110,11 @@ impl CachePort for RedisCacheAdapter {
                         .map_err(|e| DomainError::Internal(e.to_string()))?,
                 );
 
-                let response = client.get(&endpoint).headers(headers).send().await
+                let response = client
+                    .get(&endpoint)
+                    .headers(headers)
+                    .send()
+                    .await
                     .map_err(|e| DomainError::Internal(e.to_string()))?;
 
                 #[derive(Deserialize)]
@@ -116,13 +123,20 @@ impl CachePort for RedisCacheAdapter {
                 }
 
                 if response.status().is_success() {
-                    let result: UpstashResponse = response.json().await
+                    let result: UpstashResponse = response
+                        .json()
+                        .await
                         .map_err(|e| DomainError::Internal(e.to_string()))?;
                     Ok(result.result)
                 } else {
-                    let err_text = response.text().await
+                    let err_text = response
+                        .text()
+                        .await
                         .map_err(|e| DomainError::Internal(e.to_string()))?;
-                    Err(DomainError::Internal(format!("Error en Upstash: {}", err_text)))
+                    Err(DomainError::Internal(format!(
+                        "Error en Upstash: {}",
+                        err_text
+                    )))
                 }
             }
         }

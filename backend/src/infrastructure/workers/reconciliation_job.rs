@@ -1,14 +1,14 @@
-// job de reconciliacion de balances entre postgres y 
+// job de reconciliacion de balances entre postgres y
 // redis que es el cache caliente
 // para recorrer todos los registros se usa el keyset pagination
 // y para consultar redis sin tantos viajes se usa el mget/pipeline
 
-use deadpool_redis::Pool as RedisPool;
 use deadpool_redis::redis::AsyncCommands;
+use deadpool_redis::Pool as RedisPool;
 use sqlx::PgPool;
+use tokio_cron_scheduler::{Job, JobScheduler};
+use tracing::{error, info, warn};
 use uuid::Uuid;
-use tracing::{info, error, warn};
-use tokio_cron_scheduler::{JobScheduler, Job};
 
 const BATCH_SIZE: i64 = 1000;
 
@@ -37,14 +37,14 @@ pub async fn start_reconciliation_scheduler(
     sched.add(job).await?;
     sched.start().await?;
 
-    info!("Scheduler de reconciliación iniciado con cron: {}", cron_expression);
+    info!(
+        "Scheduler de reconciliación iniciado con cron: {}",
+        cron_expression
+    );
     Ok(sched)
 }
 
-async fn run_reconciliation(
-    redis_pool: &RedisPool,
-    db_pool: &PgPool,
-) -> Result<(), anyhow::Error> {
+async fn run_reconciliation(redis_pool: &RedisPool, db_pool: &PgPool) -> Result<(), anyhow::Error> {
     let mut redis_conn = redis_pool.get().await?;
     let mut last_id = Uuid::nil();
     let mut total_checked: u64 = 0;
@@ -60,7 +60,7 @@ async fn run_reconciliation(
             WHERE id > $1 
             ORDER BY id ASC 
             LIMIT $2
-            "#
+            "#,
         )
         .bind(last_id)
         .bind(BATCH_SIZE)
@@ -84,7 +84,8 @@ async fn run_reconciliation(
         last_id = *user_ids.last().unwrap();
 
         // construimos las claves de redis para el mget
-        let redis_keys: Vec<String> = user_ids.iter()
+        let redis_keys: Vec<String> = user_ids
+            .iter()
             .map(|uid| format!("user:{}:balance", uid))
             .collect();
 
@@ -99,25 +100,22 @@ async fn run_reconciliation(
             let db_balance = db_balances[i];
             let user_id = user_ids[i];
 
-            match redis_val {
-                Some(redis_balance) => {
-                    if *redis_balance != db_balance {
-                        error!(
-                            "DISCREPANCIA DETECTADA: user_id={}, balance_db={}, balance_redis={}. Sobreescribiendo Redis.",
-                            user_id, db_balance, redis_balance
-                        );
-                        pipe.set(&redis_keys[i], db_balance).ignore();
-                        pipe_has_commands = true;
-                        total_fixed += 1;
-                    }
+            if let Some(redis_balance) = redis_val {
+                if *redis_balance != db_balance {
+                    error!(
+                        "DISCREPANCIA DETECTADA: user_id={}, balance_db={}, balance_redis={}. Sobreescribiendo Redis.",
+                        user_id, db_balance, redis_balance
+                    );
+                    pipe.set(&redis_keys[i], db_balance).ignore();
+                    pipe_has_commands = true;
+                    total_fixed += 1;
                 }
-                // si el usuario no tiene clave en redis no se crea
-                None => {}
             }
         }
         // ejecutamos el pipeline solo si hay correcciones
         if pipe_has_commands {
-            let pipe_res: deadpool_redis::redis::RedisResult<()> = pipe.query_async(&mut *redis_conn).await;
+            let pipe_res: deadpool_redis::redis::RedisResult<()> =
+                pipe.query_async(&mut *redis_conn).await;
             if let Err(e) = pipe_res {
                 error!("Fallo al ejecutar pipeline de corrección en Redis: {:?}", e);
             }

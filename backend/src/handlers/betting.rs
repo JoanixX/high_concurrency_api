@@ -1,9 +1,9 @@
+use super::dto::{PlaceBetResponse, ValidateBetRequest};
+use crate::application::PlaceBetUseCase;
+use crate::domain::{Bet, BetId, MatchId, Money, Odds, UserId};
+use crate::telemetry::metrics::{BETTING_API_BETS_PLACED_TOTAL, BETTING_API_BETS_REJECTED_TOTAL};
 use actix_web::{web, HttpResponse};
 use uuid::Uuid;
-use crate::application::PlaceBetUseCase;
-use crate::telemetry::metrics::{BETTING_API_BETS_PLACED_TOTAL, BETTING_API_BETS_REJECTED_TOTAL};
-use crate::domain::{Bet, BetId, MatchId, UserId, Money, Odds};
-use super::dto::{ValidateBetRequest, PlaceBetResponse};
 
 #[tracing::instrument(
     name = "Validando una nueva apuesta",
@@ -21,7 +21,7 @@ pub async fn validate_bet(
     let bet_id = BetId::from(Uuid::new_v4());
     let user_id = UserId::from(item.user_id);
     let match_id = MatchId::from(item.match_id);
-    
+
     // parseamos el selection a enum
     let selection = match item.selection.as_str() {
         "HomeWin" => crate::domain::BetSelection::HomeWin,
@@ -34,21 +34,14 @@ pub async fn validate_bet(
     let amount = Money::from_decimal(item.amount);
     let odds = Odds::from_decimal(item.odds);
 
-    let bet = Bet::new(
-        bet_id,
-        user_id,
-        match_id,
-        selection,
-        amount,
-        odds,
-    );
+    let bet = Bet::new(bet_id, user_id, match_id, selection, amount, odds);
 
     // Se manda al caso de uso
     match use_case.execute(bet).await {
         Ok(result) => {
             // esto registra la metrica que confirma que todo god
             BETTING_API_BETS_PLACED_TOTAL.inc();
-            
+
             // se traduce la entidad rica a un dto simple
             HttpResponse::Created().json(PlaceBetResponse {
                 bet_id: result.bet.id.0,

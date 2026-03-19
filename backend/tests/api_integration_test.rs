@@ -2,11 +2,11 @@ use high_concurrency_api::config::get_configuration;
 use high_concurrency_api::telemetry::{get_subscriber, init_subscriber};
 use high_concurrency_api::Application;
 use once_cell::sync::Lazy;
-use testcontainers::{runners::AsyncRunner, ImageExt};
-use testcontainers_modules::{postgres::Postgres, redis::Redis};
+use secrecy::ExposeSecret;
 use sqlx::PgPool;
 use std::time::Duration;
-use secrecy::ExposeSecret;
+use testcontainers::{runners::AsyncRunner, ImageExt};
+use testcontainers_modules::{postgres::Postgres, redis::Redis};
 
 // aseguramos que el log se inicializa solo una vez para todos los tests
 static TRACING: Lazy<()> = Lazy::new(|| {
@@ -27,7 +27,11 @@ async fn place_bet_persists_to_postgres_via_redis_streams() {
     Lazy::force(&TRACING);
 
     // 2. levantamos los contenedores de prueba E2E
-    let pg_node = Postgres::default().with_tag("15-alpine").start().await.unwrap();
+    let pg_node = Postgres::default()
+        .with_tag("15-alpine")
+        .start()
+        .await
+        .unwrap();
     let redis_node = Redis::default().with_tag("7-alpine").start().await.unwrap();
 
     let db_host = pg_node.get_host().await.unwrap();
@@ -61,8 +65,10 @@ async fn place_bet_persists_to_postgres_via_redis_streams() {
             .port(config.database.port)
             .username(&config.database.username)
             .password(config.database.password.expose_secret())
-            .database(&config.database.database_name)
-    ).await.expect("Falló la conexión al Postgres testcontainer.");
+            .database(&config.database.database_name),
+    )
+    .await
+    .expect("Falló la conexión al Postgres testcontainer.");
 
     sqlx::migrate!("./migrations")
         .run(&db_pool)
@@ -75,9 +81,12 @@ async fn place_bet_persists_to_postgres_via_redis_streams() {
         r#"
         INSERT INTO users (id, email, password_hash, name, balance)
         VALUES ($1, 'test@test.com', 'hash', 'Test User', 100000)
-        "#)
-        .bind(user_id)
-        .execute(&db_pool).await.unwrap();
+        "#,
+    )
+    .bind(user_id)
+    .execute(&db_pool)
+    .await
+    .unwrap();
 
     // 5. levantamos la app real en plano asincrono
     let application = Application::build(config).await.expect("Falló build app.");
@@ -92,7 +101,8 @@ async fn place_bet_persists_to_postgres_via_redis_streams() {
     // 7. POST al endpoint de bets
     // el handler usa from_decimal: amount en unidades (5.0 = $5.00), odds decimal (1.5)
     // selection es requerido por el DTO del backend
-    let response = client.post(&format!("http://127.0.0.1:{}/bets", app_port))
+    let response = client
+        .post(&format!("http://127.0.0.1:{}/bets", app_port))
         .json(&serde_json::json!({
             "user_id": user_id,
             "match_id": match_id,
@@ -104,7 +114,11 @@ async fn place_bet_persists_to_postgres_via_redis_streams() {
         .await
         .expect("Error al lanzar petición HTTP.");
 
-    assert_eq!(response.status().as_u16(), 201, "El server no retornó 201 Created");
+    assert_eq!(
+        response.status().as_u16(),
+        201,
+        "El server no retornó 201 Created"
+    );
 
     let json_resp: serde_json::Value = response.json().await.unwrap();
     let bet_id_str = json_resp["bet_id"].as_str().unwrap();
@@ -116,13 +130,11 @@ async fn place_bet_persists_to_postgres_via_redis_streams() {
     let mut bet_persisted = false;
 
     while current_retry < max_retries {
-        let count: Option<i64> = sqlx::query_scalar(
-            "SELECT count(*) FROM bets WHERE id = $1"
-        )
-        .bind(bet_uuid)
-        .fetch_one(&db_pool)
-        .await
-        .expect("Error haciendo polling a la DB Postgres.");
+        let count: Option<i64> = sqlx::query_scalar("SELECT count(*) FROM bets WHERE id = $1")
+            .bind(bet_uuid)
+            .fetch_one(&db_pool)
+            .await
+            .expect("Error haciendo polling a la DB Postgres.");
 
         if count.unwrap_or(0) > 0 {
             bet_persisted = true;

@@ -1,10 +1,10 @@
 // Se hizo un pool de conexiones a postgres
 // es solo nfraestructura pura para el wiring de lib.rs
 
+use crate::config::DatabaseSettings;
+use secrecy::ExposeSecret;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
-use secrecy::ExposeSecret;
-use crate::config::DatabaseSettings;
 
 pub async fn build_connection_pool(
     configuration: &DatabaseSettings,

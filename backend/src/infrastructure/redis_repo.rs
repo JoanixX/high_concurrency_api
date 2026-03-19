@@ -1,8 +1,8 @@
-use async_trait::async_trait;
-use deadpool_redis::{Pool, redis::AsyncCommands};
-use redis::Script;
-use crate::domain::{UserId, MatchId, Money, Odds, DomainError};
 use crate::domain::ports::BettingStateRepository;
+use crate::domain::{DomainError, MatchId, Money, Odds, UserId};
+use async_trait::async_trait;
+use deadpool_redis::Pool;
+use redis::Script;
 
 pub struct RedisBettingStateRepository {
     pool: Pool,
@@ -49,7 +49,7 @@ impl BettingStateRepository for RedisBettingStateRepository {
         // argv[4] -> user id
         // argv[5] -> match id
         // argv[6] -> selection
-        
+
         let script = Script::new(
             r#"
             -- 1. Validar cuotas actuales
@@ -91,10 +91,10 @@ impl BettingStateRepository for RedisBettingStateRepository {
         // volvemos lo que retorna el lua a tipos para el dominio
         match result {
             1 => Ok(()), // apuesta lograda, balance debitado
-            -1 => { 
+            -1 => {
                 // reportamos como default requerido el saldo de redis
                 Err(DomainError::InsufficientFunds {
-                    available: Money::new(0), // aqui se podria hacer un GET previo o posterior 
+                    available: Money::new(0), // aqui se podria hacer un GET previo o posterior
                     // pero rompería la pureza y la latencia del error path
                     required: amount,
                 })
@@ -104,11 +104,12 @@ impl BettingStateRepository for RedisBettingStateRepository {
                 Err(DomainError::OddsChanged {
                     requested: expected_odds,
                     current: Odds::new(0), // el placeholder se re-fletchearia para informar al usuario
-                    // pero por ahora se hace el reject atomic, que significa que la apuesta no se realiza
+                                           // pero por ahora se hace el reject atomic, que significa que la apuesta no se realiza
                 })
             }
             _ => Err(DomainError::InfrastructureError(format!(
-                "Código de error desconocido ({}) del script lua", result
+                "Código de error desconocido ({}) del script lua",
+                result
             ))),
         }
     }

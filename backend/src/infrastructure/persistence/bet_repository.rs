@@ -1,12 +1,12 @@
-// Se creó un adaptador secundario con implementación postgres 
+// Se creó un adaptador secundario con implementación postgres
 // del puerto de apuestas
 
+use crate::domain::ports::BetRepository;
+use crate::domain::{Bet, BetId, DomainError, MatchId, Money, Odds, UserId};
 use async_trait::async_trait;
+use chrono::Utc;
 use sqlx::PgPool;
 use uuid::Uuid;
-use chrono::Utc;
-use crate::domain::{Bet, BetId, MatchId, UserId, Money, Odds, DomainError};
-use crate::domain::ports::BetRepository;
 
 pub struct PostgresBetRepository {
     pool: PgPool,
@@ -24,7 +24,7 @@ fn map_sqlx_error(e: sqlx::Error) -> DomainError {
         sqlx::Error::RowNotFound => DomainError::NotFound,
         sqlx::Error::Database(ref db_err) => {
             // se usa el código 23505, que es para una unique_violation en postgres
-            if db_err.code().map_or(false, |c| c == "23505") {
+            if db_err.code().is_some_and(|c| c == "23505") {
                 DomainError::Duplicate(db_err.message().to_string())
             } else {
                 DomainError::Internal(e.to_string())
@@ -36,10 +36,7 @@ fn map_sqlx_error(e: sqlx::Error) -> DomainError {
 
 #[async_trait]
 impl BetRepository for PostgresBetRepository {
-    async fn save(
-        &self,
-        bet: &Bet,
-    ) -> Result<(), DomainError> {
+    async fn save(&self, bet: &Bet) -> Result<(), DomainError> {
         let status_str = bet.status.as_str();
         let selection_str = bet.selection.as_str();
 
@@ -82,23 +79,31 @@ impl BetRepository for PostgresBetRepository {
 
         if let Some(r) = row {
             // Se mapean los numeric de postgres al pattern money y odds
-            // en un entorno sin compile-time query type-safe los numeric 
+            // en un entorno sin compile-time query type-safe los numeric
             // pueden venir como decimal u otro tipo.
             // Extraer a string es la forma rudimentaria segura de mapear el numeric,
             // y despues se refactorizaría con tipos decimal dedicados en infraestructura
-            
+
             // sqlx infiere tipos en el fetch
             let amount_str: Option<String> = r.try_get("amount").unwrap_or(None);
             let odds_str: Option<String> = r.try_get("odds").unwrap_or(None);
 
-            let amount = amount_str.unwrap_or_else(|| "0.0".to_string()).parse::<f64>().unwrap_or(0.0);
-            let odds = odds_str.unwrap_or_else(|| "0.0".to_string()).parse::<f64>().unwrap_or(0.0);
-            
+            let amount = amount_str
+                .unwrap_or_else(|| "0.0".to_string())
+                .parse::<f64>()
+                .unwrap_or(0.0);
+            let odds = odds_str
+                .unwrap_or_else(|| "0.0".to_string())
+                .parse::<f64>()
+                .unwrap_or(0.0);
+
             let id_uuid: Uuid = r.try_get("id").unwrap();
             let user_uuid: Uuid = r.try_get("user_id").unwrap();
             let match_uuid: Uuid = r.try_get("match_id").unwrap();
             let status_str: Option<String> = r.try_get("status").unwrap_or(None);
-            let selection_str: String = r.try_get("selection").unwrap_or_else(|_| "HomeWin".to_string());
+            let selection_str: String = r
+                .try_get("selection")
+                .unwrap_or_else(|_| "HomeWin".to_string());
 
             let selection = match selection_str.as_str() {
                 "HomeWin" => crate::domain::BetSelection::HomeWin,
@@ -119,7 +124,7 @@ impl BetRepository for PostgresBetRepository {
             match status_str.as_deref() {
                 Some("ACCEPTED") => bet.accept(),
                 Some("REJECTED") => bet.reject(),
-                _ => {}, // se mantiene en pending
+                _ => {} // se mantiene en pending
             }
 
             Ok(Some(bet))

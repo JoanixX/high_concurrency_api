@@ -3,8 +3,8 @@ use futures_util::StreamExt as _;
 use std::time::{Duration, Instant};
 use tokio::{sync::mpsc, time};
 
-use crate::domain::UserId;
 use super::manager::{ConnectionManager, WsMessage};
+use crate::domain::UserId;
 
 // cadencia de ping
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(10);
@@ -50,14 +50,12 @@ pub async fn ws_session_loop(
                     Message::Text(text) => {
                         // enrutamiento del payload
                         let text_str = text.trim();
-                        if text_str.starts_with("SUB:") {
-                            let match_id_str = &text_str[4..];
+                        if let Some(match_id_str) = text_str.strip_prefix("SUB:") {
                             if let Ok(parsed_uuid) = uuid::Uuid::parse_str(match_id_str) {
                                 manager.subscribe_to_match(&user_id, crate::domain::MatchId(parsed_uuid));
                                 let _ = session.text(format!("SUSCRITO OKEY: {}", parsed_uuid)).await;
                             }
-                        } else if text_str.starts_with("UNSUB:") {
-                            let match_id_str = &text_str[6..];
+                        } else if let Some(match_id_str) = text_str.strip_prefix("UNSUB:") {
                             if let Ok(parsed_uuid) = uuid::Uuid::parse_str(match_id_str) {
                                 manager.unsubscribe_from_match(&user_id, &crate::domain::MatchId(parsed_uuid));
                                 let _ = session.text(format!("DESUSCRITO OKEY: {}", parsed_uuid)).await;

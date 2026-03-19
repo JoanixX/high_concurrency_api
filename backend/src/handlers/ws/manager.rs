@@ -1,8 +1,8 @@
+use crate::domain::{MatchId, UserId};
+use crate::telemetry::metrics::BETTING_API_ACTIVE_WS_CONNECTIONS;
 use dashmap::DashMap;
 use std::sync::Arc;
 use tokio::sync::mpsc;
-use crate::domain::{UserId, MatchId};
-use crate::telemetry::metrics::BETTING_API_ACTIVE_WS_CONNECTIONS;
 
 // mensajes internos hacia la sesión ws
 #[derive(Debug, Clone)]
@@ -36,11 +36,18 @@ impl ConnectionManager {
 
     // registra nuevo cliente post-upgrade y retorna el guard
     // que reduce la metrica cuando se destruya en memoria
-    pub fn add_client(&self, user_id: UserId, sender: mpsc::UnboundedSender<WsMessage>) -> WsConnectionMetricsGuard {
-        self.sessions.insert(user_id, SessionState {
-            sender,
-            subscriptions: dashmap::DashSet::new(),
-        });
+    pub fn add_client(
+        &self,
+        user_id: UserId,
+        sender: mpsc::UnboundedSender<WsMessage>,
+    ) -> WsConnectionMetricsGuard {
+        self.sessions.insert(
+            user_id,
+            SessionState {
+                sender,
+                subscriptions: dashmap::DashSet::new(),
+            },
+        );
         tracing::debug!("Usuario {} conectado al websocket", user_id);
         WsConnectionMetricsGuard::new()
     }
@@ -56,22 +63,26 @@ impl ConnectionManager {
     pub fn subscribe_to_match(&self, user_id: &UserId, match_id: MatchId) {
         if let Some(session) = self.sessions.get(user_id) {
             session.subscriptions.insert(match_id);
-            tracing::debug!("Usuario {} suscrito a cuotas del match {}", user_id, match_id);
+            tracing::debug!(
+                "Usuario {} suscrito a cuotas del match {}",
+                user_id,
+                match_id
+            );
         }
     }
-    
+
     // remueve suscripción a partido
     pub fn unsubscribe_from_match(&self, user_id: &UserId, match_id: &MatchId) {
-         if let Some(session) = self.sessions.get(user_id) {
+        if let Some(session) = self.sessions.get(user_id) {
             session.subscriptions.remove(match_id);
         }
     }
 
     // emite cuotas a los suscritos
     pub fn broadcast_odds_update(&self, match_id: MatchId, new_odds: &str) {
-        let msg = WsMessage::OddsUpdate { 
-            match_id, 
-            odds: new_odds.to_string() 
+        let msg = WsMessage::OddsUpdate {
+            match_id,
+            odds: new_odds.to_string(),
         };
 
         // dashmap permite iterar sin bloquear escrituras concurrentes
@@ -96,13 +107,26 @@ impl ConnectionManager {
     }
 }
 
+impl Default for ConnectionManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 // estructura raii (resource acquisition is initialization)
 // garantiza matematicamente que el dec() se llamará al salir de la conexion
 pub struct WsConnectionMetricsGuard;
+
 impl WsConnectionMetricsGuard {
     pub fn new() -> Self {
         BETTING_API_ACTIVE_WS_CONNECTIONS.inc();
         Self
+    }
+}
+
+impl Default for WsConnectionMetricsGuard {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

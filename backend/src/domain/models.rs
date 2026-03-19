@@ -1,11 +1,11 @@
 // entidades de dominio puras sin dtos de http
 // los request/response types van en el adaptador de handlers
 
+use super::money::Money;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 use uuid::Uuid;
-use super::money::Money;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct UserId(pub Uuid);

@@ -1,18 +1,27 @@
-// Se creó un adaptador secundario con implementación argon2 
+// Se creó un adaptador secundario con implementación argon2
 // del puerto del hash del password
 
+use crate::domain::ports::PasswordHasher;
+use crate::domain::DomainError;
 use argon2::{
-    password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher as ArgonHasherTrait, PasswordVerifier, SaltString},
+    password_hash::{
+        rand_core::OsRng, PasswordHash, PasswordHasher as ArgonHasherTrait, PasswordVerifier,
+        SaltString,
+    },
     Argon2,
 };
-use crate::domain::DomainError;
-use crate::domain::ports::PasswordHasher;
 
 pub struct Argon2Hasher;
 
 impl Argon2Hasher {
     pub fn new() -> Self {
         Self
+    }
+}
+
+impl Default for Argon2Hasher {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

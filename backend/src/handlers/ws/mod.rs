@@ -1,12 +1,11 @@
 pub mod manager;
 pub mod session;
 
-use actix_web::{web, HttpRequest, HttpResponse};
-use actix_ws::MessageStream;
-use tokio::sync::mpsc;
 use crate::domain::UserId;
 use crate::handlers::ws::manager::ConnectionManager;
 use crate::handlers::ws::session::ws_session_loop;
+use actix_web::{web, HttpRequest, HttpResponse};
+use tokio::sync::mpsc;
 
 // ruta upgrade a websocket
 pub async fn ws_upgrade_handler(
@@ -16,7 +15,6 @@ pub async fn ws_upgrade_handler(
     // el uuid viene de path param para pruebas auth
     path: web::Path<String>,
 ) -> Result<HttpResponse, actix_web::Error> {
-    
     // extrae id de ruta simulada
     let user_id_str = path.into_inner();
     let user_uuid = match uuid::Uuid::parse_str(&user_id_str) {
@@ -31,13 +29,13 @@ pub async fn ws_upgrade_handler(
 
     // se enlaza al manager global y retorna el guard que mantiene
     //  la metrica de conexion viva
-    let manager_clone = manager.get_ref().clone(); // el manager envuelve un 
-    // arc sin costo
+    let manager_clone = manager.get_ref().clone(); // el manager envuelve un
+                                                   // arc sin costo
     let _metrics_guard = manager_clone.add_client(user_id, tx);
 
     // aquise aisla la tarea en el executor actix local (!send)
     actix_web::rt::spawn(async move {
-        // movemos el guard hacia adentro del future para que 
+        // movemos el guard hacia adentro del future para que
         // viva lo de la conexion
         let _active_connection_guard = _metrics_guard;
         ws_session_loop(user_id, session, msg_stream, manager_clone, rx).await;
