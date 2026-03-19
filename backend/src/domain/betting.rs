@@ -123,7 +123,7 @@ mod tests {
             BetId::from(Uuid::new_v4()),
             UserId::from(Uuid::new_v4()),
             match_id,
-            BetSelection::Home,
+            BetSelection::HomeWin,
             bet_amount,
             current_odds, // coincide con las actuales
         );
