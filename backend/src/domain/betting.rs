@@ -103,7 +103,7 @@ impl BetValidationPolicy for StandardBetValidationPolicy {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::models::{BetId, MatchId, Odds, UserId};
+    use crate::domain::models::{BetId, BetSelection, MatchId, Odds, UserId};
     use uuid::Uuid;
 
     fn setup_valid_bet_scenario() -> (Bet, SportMatch, Money) {
