@@ -1,10 +1,10 @@
 // Registrar usuario
 // depende solo de puertos, no de implementaciones concretas
 
+use crate::domain::ports::{PasswordHasher, UserRepository};
+use crate::domain::DomainError;
 use std::sync::Arc;
 use uuid::Uuid;
-use crate::domain::DomainError;
-use crate::domain::ports::{UserRepository, PasswordHasher};
 
 pub struct RegisterUserUseCase {
     user_repo: Arc<dyn UserRepository>,
@@ -17,10 +17,7 @@ pub struct RegisterResult {
 }
 
 impl RegisterUserUseCase {
-    pub fn new(
-        user_repo: Arc<dyn UserRepository>,
-        hasher: Arc<dyn PasswordHasher>,
-    ) -> Self {
+    pub fn new(user_repo: Arc<dyn UserRepository>, hasher: Arc<dyn PasswordHasher>) -> Self {
         Self { user_repo, hasher }
     }
 
@@ -45,7 +42,9 @@ impl RegisterUserUseCase {
         let user_id = crate::domain::UserId::from(Uuid::new_v4());
 
         // persistir vía puerto
-        self.user_repo.save(user_id, email, &password_hash, name).await?;
+        self.user_repo
+            .save(user_id, email, &password_hash, name)
+            .await?;
         tracing::info!(user_id = %user_id, "usuario registrado");
 
         Ok(RegisterResult { user_id: user_id.0 })

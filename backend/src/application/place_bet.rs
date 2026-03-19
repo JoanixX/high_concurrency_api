@@ -1,8 +1,11 @@
 // Colocar apuesta
 // orquesta la lógica de negocio usando solo los puertos
 
+use crate::domain::{
+    ports::{BettingStateRepository, CachePort},
+    Bet, DomainError,
+};
 use std::sync::Arc;
-use crate::domain::{Bet, DomainError, ports::{BettingStateRepository, CachePort}};
 
 pub struct PlaceBetUseCase {
     bet_state_repo: Arc<dyn BettingStateRepository>,
@@ -16,11 +19,8 @@ pub struct PlaceBetResult {
 }
 
 impl PlaceBetUseCase {
-    pub fn new(
-        bet_state_repo: Arc<dyn BettingStateRepository>,
-        cache: Arc<dyn CachePort>,
-    ) -> Self {
-        Self { 
+    pub fn new(bet_state_repo: Arc<dyn BettingStateRepository>, cache: Arc<dyn CachePort>) -> Self {
+        Self {
             bet_state_repo,
             cache,
         }
@@ -28,14 +28,16 @@ impl PlaceBetUseCase {
 
     pub async fn execute(&self, mut bet: Bet) -> Result<PlaceBetResult, DomainError> {
         // 1. hacemos la validacion y debito atómicamente del redis
-        self.bet_state_repo.place_bet_atomically(
-            bet.id,
-            bet.user_id,
-            bet.match_id,
-            bet.selection.clone(),
-            bet.amount,
-            bet.locked_odds
-        ).await?;
+        self.bet_state_repo
+            .place_bet_atomically(
+                bet.id,
+                bet.user_id,
+                bet.match_id,
+                bet.selection.clone(),
+                bet.amount,
+                bet.locked_odds,
+            )
+            .await?;
 
         // 2. transicion de estado a Aceptada
         bet.accept();
@@ -52,8 +54,6 @@ impl PlaceBetUseCase {
             tracing::warn!("no se pudo actualizar la cache: {:?}", e);
         }
 
-        Ok(PlaceBetResult {
-            bet,
-        })
+        Ok(PlaceBetResult { bet })
     }
 }

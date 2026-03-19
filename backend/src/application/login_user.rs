@@ -1,10 +1,10 @@
 // Login de usuario
 // verifica credenciales usando puertos, sin conocer argon2 ni postgres
 
+use crate::domain::ports::{PasswordHasher, UserRepository};
+use crate::domain::DomainError;
 use std::sync::Arc;
 use uuid::Uuid;
-use crate::domain::DomainError;
-use crate::domain::ports::{UserRepository, PasswordHasher};
 
 pub struct LoginUserUseCase {
     user_repo: Arc<dyn UserRepository>,
@@ -18,18 +18,11 @@ pub struct LoginResult {
 }
 
 impl LoginUserUseCase {
-    pub fn new(
-        user_repo: Arc<dyn UserRepository>,
-        hasher: Arc<dyn PasswordHasher>,
-    ) -> Self {
+    pub fn new(user_repo: Arc<dyn UserRepository>, hasher: Arc<dyn PasswordHasher>) -> Self {
         Self { user_repo, hasher }
     }
 
-    pub async fn execute(
-        &self,
-        email: &str,
-        password: &str,
-    ) -> Result<LoginResult, DomainError> {
+    pub async fn execute(&self, email: &str, password: &str) -> Result<LoginResult, DomainError> {
         // buscar usuario vía puerto
         let user = self
             .user_repo
