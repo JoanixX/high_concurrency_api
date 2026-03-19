@@ -86,7 +86,7 @@ async fn run_reconciliation(redis_pool: &RedisPool, db_pool: &PgPool) -> Result<
         // construimos las claves de redis para el mget
         let redis_keys: Vec<String> = user_ids
             .iter()
-            .map(|uid| format!("user:{}:balance", uid))
+            .map(|uid| format!("user:{uid}:balance"))
             .collect();
 
         // el mget hace un solo viaje para hacer las n consultas a redis

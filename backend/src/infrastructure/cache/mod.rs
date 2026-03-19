@@ -57,11 +57,11 @@ impl CachePort for RedisCacheAdapter {
                 Ok(())
             }
             RedisCacheAdapter::Rest { url, token, client } => {
-                let endpoint = format!("{}/SET/{}/{}/EX/{}", url, key, value, expire_secs);
+                let endpoint = format!("{url}/SET/{key}/{value}/EX/{expire_secs}");
                 let mut headers = HeaderMap::new();
                 headers.insert(
                     AUTHORIZATION,
-                    HeaderValue::from_str(&format!("Bearer {}", token))
+                    HeaderValue::from_str(&format!("Bearer {token}"))
                         .map_err(|e| DomainError::Internal(e.to_string()))?,
                 );
 
@@ -79,10 +79,7 @@ impl CachePort for RedisCacheAdapter {
                         .text()
                         .await
                         .map_err(|e| DomainError::Internal(e.to_string()))?;
-                    Err(DomainError::Internal(format!(
-                        "Error en Upstash: {}",
-                        err_text
-                    )))
+                    Err(DomainError::Internal(format!("Error en Upstash: {err_text}")))
                 }
             }
         }
@@ -102,11 +99,11 @@ impl CachePort for RedisCacheAdapter {
                 Ok(val)
             }
             RedisCacheAdapter::Rest { url, token, client } => {
-                let endpoint = format!("{}/GET/{}", url, key);
+                let endpoint = format!("{url}/GET/{key}");
                 let mut headers = HeaderMap::new();
                 headers.insert(
                     AUTHORIZATION,
-                    HeaderValue::from_str(&format!("Bearer {}", token))
+                    HeaderValue::from_str(&format!("Bearer {token}"))
                         .map_err(|e| DomainError::Internal(e.to_string()))?,
                 );
 
@@ -133,10 +130,7 @@ impl CachePort for RedisCacheAdapter {
                         .text()
                         .await
                         .map_err(|e| DomainError::Internal(e.to_string()))?;
-                    Err(DomainError::Internal(format!(
-                        "Error en Upstash: {}",
-                        err_text
-                    )))
+                    Err(DomainError::Internal(format!("Error en Upstash: {err_text}")))
                 }
             }
         }

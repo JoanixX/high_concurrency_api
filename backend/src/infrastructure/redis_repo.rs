@@ -108,8 +108,7 @@ impl BettingStateRepository for RedisBettingStateRepository {
                 })
             }
             _ => Err(DomainError::InfrastructureError(format!(
-                "Código de error desconocido ({}) del script lua",
-                result
+                "Código de error desconocido ({result}) del script lua",
             ))),
         }
     }

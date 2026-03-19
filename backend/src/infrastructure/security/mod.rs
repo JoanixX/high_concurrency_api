@@ -32,12 +32,12 @@ impl PasswordHasher for Argon2Hasher {
         argon2
             .hash_password(password.as_bytes(), &salt)
             .map(|h| h.to_string())
-            .map_err(|e| DomainError::Internal(format!("error al hashear: {}", e)))
+            .map_err(|e| DomainError::Internal(format!("error al hashear: {e}")))
     }
 
     fn verify(&self, password: &str, hash: &str) -> Result<bool, DomainError> {
         let parsed_hash = PasswordHash::new(hash)
-            .map_err(|e| DomainError::Internal(format!("hash inválido: {}", e)))?;
+            .map_err(|e| DomainError::Internal(format!("hash inválido: {e}")))?;
         Ok(Argon2::default()
             .verify_password(password.as_bytes(), &parsed_hash)
             .is_ok())

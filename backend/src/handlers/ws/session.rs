@@ -53,12 +53,12 @@ pub async fn ws_session_loop(
                         if let Some(match_id_str) = text_str.strip_prefix("SUB:") {
                             if let Ok(parsed_uuid) = uuid::Uuid::parse_str(match_id_str) {
                                 manager.subscribe_to_match(&user_id, crate::domain::MatchId(parsed_uuid));
-                                let _ = session.text(format!("SUSCRITO OKEY: {}", parsed_uuid)).await;
+                                let _ = session.text(format!("SUSCRITO OKEY: {parsed_uuid}")).await;
                             }
                         } else if let Some(match_id_str) = text_str.strip_prefix("UNSUB:") {
                             if let Ok(parsed_uuid) = uuid::Uuid::parse_str(match_id_str) {
                                 manager.unsubscribe_from_match(&user_id, &crate::domain::MatchId(parsed_uuid));
-                                let _ = session.text(format!("DESUSCRITO OKEY: {}", parsed_uuid)).await;
+                                let _ = session.text(format!("DESUSCRITO OKEY: {parsed_uuid}")).await;
                             }
                         }
                     }
