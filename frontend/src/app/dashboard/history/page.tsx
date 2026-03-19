@@ -70,7 +70,7 @@ function StatusBadge({ status }: { status: BetStatus }) {
 }
 
 export default function HistoryPage() {
-  const userId = useAuthStore((s) => s.userId);
+  const userId = useAuthStore((s) => s.user_id);
   const { data: history = [], isLoading } = useUserHistory(userId);
 
   return (
