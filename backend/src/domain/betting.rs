@@ -123,6 +123,7 @@ mod tests {
             BetId::from(Uuid::new_v4()),
             UserId::from(Uuid::new_v4()),
             match_id,
+            BetSelection::Home,
             bet_amount,
             current_odds, // coincide con las actuales
         );
@@ -157,10 +158,10 @@ mod tests {
     #[test]
     fn test_insufficient_funds_is_rejected() {
         let policy = StandardBetValidationPolicy::new();
-        let (bet, match_info, mut balance) = setup_valid_bet_scenario();
+        let (bet, match_info, _) = setup_valid_bet_scenario();
 
         // Saldo menor a la apuesta (apuesta 1000, saldo 500)
-        balance = Money::new(500);
+        let balance = Money::new(500);
 
         let result = policy.validate(&bet, &match_info, &balance);
 
