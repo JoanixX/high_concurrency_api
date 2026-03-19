@@ -6,9 +6,9 @@ API de alto rendimiento para la validación de apuestas en eventos en vivo, cons
 
 | tecnología        | propósito                                    |
 | :---------------- | :------------------------------------------- |
-| Rust              | lenguaje principal                           |
-| Actix-Web 4       | framework web asíncrono                      |
-| Tokio             | runtime asíncrono (multi-thread)             |
+| Rust 1.88+       | lenguaje principal (Edition 2024 ready)      |
+| Actix-Web 4.13    | framework web asíncrono                      |
+| Tokio 1.x         | runtime asíncrono (multi-thread)             |
 | SQLx 0.7          | acceso a PostgreSQL (compile-time checked)   |
 | PostgreSQL (Neon) | persistencia principal (serverless en prod)  |
 | Redis / Upstash   | caché de validación rápida                   |
@@ -99,40 +99,43 @@ la composición se realiza en `lib.rs`:
 backend/
 ├── src/
 │   ├── domain/                 ← core: cero deps de framework
-│   │   ├── models.rs           (entidades: BetTicket, User, BetStatus)
+│   │   ├── models.rs           (entidades: BetTicket, User, BetStatus, Money)
 │   │   ├── errors.rs           (errores de dominio tipados con thiserror)
+│   │   ├── money.rs            (lógica de moneda en centavos enteros)
 │   │   └── ports.rs            (traits: BetRepository, UserRepository, CachePort, PasswordHasher)
 │   ├── application/            ← casos de uso: orquestan lógica via ports
 │   │   ├── place_bet.rs        (validar + persistir apuesta)
 │   │   ├── register_user.rs    (hashear + persistir usuario)
 │   │   └── login_user.rs       (verificar credenciales)
+│   │   └── mod.rs              (re-exports limpios de casos de uso)
 │   ├── infrastructure/         ← adaptadores secundarios (driven)
 │   │   ├── persistence/        (Postgres: PostgresBetRepository, PostgresUserRepository)
 │   │   ├── cache/              (Redis/Upstash: RedisCacheAdapter)
 │   │   ├── security/           (Argon2Hasher)
-│   │   ├── workers/            (background workers: bet_persister)
+│   │   ├── workers/            (background workers: bet_persister, settlement, reconciliation)
 │   │   ├── redis_pubsub.rs     (broadcast de eventos)
-│   │   ├── redis_repo.rs       (repositorio de estado distribuido)
-│   │   └── database.rs         (pool de conexiones)
+│   │   ├── redis_repo.rs       (repositorio de estado distribuido con Lua Scripts)
+│   │   └── database.rs         (pool de conexiones optimizado)
 │   ├── handlers/               ← adaptadores primarios (driving)
-│   │   ├── dto.rs              (request/response DTOs HTTP)
+│   │   ├── dto.rs              (request/response DTOs HTTP con validación Serde)
 │   │   ├── betting.rs          (HTTP → PlaceBetUseCase → HTTP)
 │   │   ├── auth.rs             (HTTP → RegisterUser/LoginUser → HTTP)
-│   │   ├── ws/                 (Websocket manager con instrumentación)
+│   │   ├── ws/                 (Websocket manager con instrumentación real-time)
 │   │   └── health_check.rs     (endpoint de salud)
-│   ├── errors/                 ← mapeo DomainError → HttpResponse
-│   ├── config/                 ← configuración multi-entorno (YAML + env vars)
-│   ├── middlewares/            ← middlewares personalizados (Rate Limiter)
-│   ├── routes/                 ← definición de rutas globales
-│   ├── telemetry/              ← tracing y métricas Prometheus configuradas
+│   ├── errors/                 ← mapeo DomainError → HttpResponse (Centralized Handling)
+│   ├── config/                 ← configuración multi-entorno (YAML + env vars strongly typed)
+│   ├── middlewares/            ← middlewares personalizados (Rate Limiter Token Bucket)
+│   ├── routes/                 ← definición de rutas globales y re-exports
+│   ├── telemetry/              ← tracing y métricas Prometheus configuradas (Zero-Cardinality)
 │   ├── lib.rs                  ← composition root (DI y setup de workers asíncronos)
 │   └── main.rs                 ← punto de entrada
 ├── configuration/
 │   ├── base.yaml               (config local por defecto)
 │   └── production.yaml         (overrides para producción)
-├── migrations/                 ← migraciones SQL (SQLx)
-├── k6/                         ← scripts de load testing
-├── tests/                      ← tests de integración
+├── migrations/                 ← migraciones SQL (SQLx compile-time checked)
+├── k6/                         ← scripts de load testing (stress / soak)
+├── tests/                      ← tests de integración (Blackbox con Infra Real)
+├── .github/workflows/ci.yml    ← Pipeline CI (fmt, clippy, test) - Pinneado a Rust 1.88.0
 ├── Cargo.toml
 └── Dockerfile
 ```
@@ -176,11 +179,18 @@ la API estará disponible en `http://localhost:8000`.
 
 ## 🧪 Testing y Validación (End-to-End)
 
-Los tests se ejecutan programáticamente integrándose a la infraestructura de host/entorno (Postgres + Redis). En lugar de mocks poco fiables, probamos el pipeline HTTP con los *background workers* activos y comprobamos la aserción en Postgres mediante técnica de "Polling" determinista:
+Los tests se ejecutan programáticamente integrándose a la infraestructura real (Postgres + Redis). En lugar de mocks poco fiables, probamos el pipeline HTTP con los *background workers* activos y comprobamos la aserción en Postgres mediante técnica de "Polling" determinista con timeouts ajustados para CI:
 
 ```bash
 cargo test --test api_integration_test
 ```
+
+### Calidad de Código (CI Stricto)
+El proyecto utiliza un pipeline de CI que exige:
+- **Formateo**: `cargo fmt --all -- --check`
+- **Linting**: `cargo clippy -- -D warnings` (incluyendo `uninlined_format_args` y `unused_assignments`)
+- **Tests**: Validación asíncrona de persistencia y estado.
+- **Mínimo Rust**: 1.88.0 (Requerido por dependencias de Actix v4+ y Edition 2024).
 
 ## 🔥 Load Testing con k6
 

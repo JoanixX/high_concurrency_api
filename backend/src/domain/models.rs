@@ -52,8 +52,8 @@ impl From<Uuid> for BetId {
     }
 }
 
-/// Representa las cuotas (odds) usando un entero en milésimas
-/// por ejemplo : 2.50 = 2500, 1.05 = 1050
+// Representa las cuotas (odds) usando un entero en milésimas
+// por ejemplo : 2.50 = 2500, 1.05 = 1050
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Odds {
     pub value_thousandths: u32,
@@ -64,7 +64,7 @@ impl Odds {
         Self { value_thousandths }
     }
 
-    /// convierte un float a milesimas solo para la entrada de datos
+    // convierte un float a milesimas solo para la entrada de datos
     pub fn from_decimal(odds: f64) -> Self {
         Self {
             value_thousandths: (odds * 1000.0).round() as u32,

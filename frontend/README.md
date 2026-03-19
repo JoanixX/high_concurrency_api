@@ -9,9 +9,11 @@ Interfaz web construida con **Next.js 14** (App Router) que consume la API de al
 - **Estado Global**: Zustand (stores modulares O(1) para alta frecuencia: `odds-store`, `selections-store`, `auth-store`)
 - **Data Fetching (Snapshot)**: TanStack Query (React Query) para llamadas REST
 - **Tiempo Real (Delta)**: WebSocket nativo con reconexión exponencial y sync de estado
-- **Feedback Visual UI**: Toaster vía Sonner y mutación DOM directa (Zero React Renders)
+- **Feedback Visual UI**: Toaster vía Sonner y mutación DOM directa (Zero React Renders) para Odds y Balance
+- **Matemática Financiera**: Manejo de dinero en **centavos enteros (integers)** para evitar errores de precisión IEEE 754
 - **Estilos**: Tailwind CSS + shadcn/ui
-- **HTTP Client**: Axios con interceptores de auth
+- **HTTP Client**: Axios con interceptores de auth y TanStack Query para persistencia local
+- **i18n**: Formateo de moneda estandarizado `en-US` / `USD` via `Intl.NumberFormat`
 
 ## 📂 Estructura
 
@@ -20,10 +22,12 @@ src/
 ├── app/                  # Rutas de Next.js (App Router)
 │   ├── (auth)/           # Rutas de autenticación (login, registro)
 │   ├── dashboard/        # Dashboard interactivo Snapshot+Delta
+│   │   ├── history/      # Historial financiero de apuestas (TanStack Table)
 │   ├── layout.tsx        # Layout raíz con providers (QueryClient, Toaster)
 │   └── page.tsx          # Página de inicio
 ├── components/           # Componentes reutilizables
-│   ├── ui/               # Primitivos de shadcn/ui (Button, Sonner, etc.)
+│   ├── ui/               # Primitivos de shadcn/ui (Button, Table, etc.)
+│   ├── balance-indicator.tsx # Componente Zero-Render para saldo vivo
 │   ├── betting-slip.tsx  # Boleta de apuestas (Single Bet "Quick Bet")
 │   ├── live-odds-row.tsx # Zero-Render Flash Fila de odds en vivo
 │   └── live-odds-table.tsx
@@ -36,9 +40,10 @@ src/
 │   ├── api.ts            # Cliente Axios para endpoints y mock inicial
 │   ├── socket.ts         # Cliente WebSocket con reconnect + heartbeat
 │   └── constants.ts      # Ubiquitous Language (espejo the Enums de Rust)
-├── store/                # Stores de Zustand centralizados
-│   ├── auth-store.ts     # Sesiones y Token
-│   ├── betting-store.ts  # Historial y Pending bets
+├── store/                # Stores de Zustand centralizados (Modular O(1))
+│   ├── auth-store.ts     # Sesiones, Token y User context
+│   ├── balance-store.ts  # Saldo en centavos con lógica de Optimistic Update
+│   ├── betting-store.ts  # Historial y Pending bets (Frontend side)
 │   ├── odds-store.ts     # Record local de odds vivo
 │   └── selections-store.ts # Foco en la selección activa para Slip
 └── types/                # Tipos TypeScript Strict
@@ -48,8 +53,9 @@ src/
 ## 🏎️ Arquitectura de Alta Frecuencia (Real-Time UI)
 
 1. **Patrón Snapshot + Delta**: La aplicación nunca queda en blanco de forma pasiva. Con `TanStack Query` se levanta un _Snapshot_ a través de REST (por ahora vía `fetchActiveMatches`), y el WebSocket se conecta luego para emitir parches (_Deltas_) directos al Store para el flujo vivo asíncrono. En caídas the WS se vuelve a disparar el snapshot.
-2. **Zero React Renders (Flash Highlights)**: El resalto de cuotas verde/rojo prescinde del Virtual DOM (`useState`). Empleamos manipulación DOM subyacente (`.classList.add`) unida a un timeout con protección _anti memory leaks_, evitando el re-render de React entero por cada tick del socket.
-3. **Feedback Ágil (Sonner)**: Validaciones asíncronas envían eventos de Toast visuales reportando el éxito (`Accepted`) y la latencia exacta al instante.
+2. **Zero React Renders (Flash Highlights)**: El resalto de cuotas y el indicador de saldo (`BalanceIndicator`) prescinden del ciclo de vida de React para efectos visuales. Empleamos manipulación DOM subyacente (`useRef` + `.classList.add`) unida a un timeout con protección _anti memory leaks_, evitando re-renders globales innecesarios en updates de alta frecuencia (>10 updates/sec).
+3. **Optimistic Updates & Paridad en Centavos**: Todas las operaciones matemáticas en el cliente se realizan sobre enteros (centavos). La UI asume el éxito de la apuesta inmediatamente restando el saldo localmente, y realiza un `rollback` automático si el backend detecta una violación de saldo o cuota, garantizando consistencia total con el Dominio de Rust.
+4. **Feedback Ágil (Sonner)**: Validaciones asíncronas envían eventos de Toast visuales reportando el éxito (`Accepted`) e informando la latencia E2E.
 
 ## 🚀 Ejecución Local
 

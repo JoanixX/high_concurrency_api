@@ -6,7 +6,7 @@ use super::models::{Bet, MatchStatus, SportMatch};
 use super::money::Money;
 
 pub trait BetValidationPolicy: Send + Sync {
-    /// aqui se valida si una apuesta puede ser aceptada de
+    // aqui se valida si una apuesta puede ser aceptada de
     // acuerdo a las reglas del dominio
     fn validate(
         &self,
@@ -16,7 +16,7 @@ pub trait BetValidationPolicy: Send + Sync {
     ) -> Result<(), DomainError>;
 }
 
-/// implementación estandar de las reglas de negocio
+// implementación estandar de las reglas de negocio
 pub struct StandardBetValidationPolicy;
 
 impl StandardBetValidationPolicy {
@@ -43,7 +43,7 @@ impl StandardBetValidationPolicy {
     ) -> Result<(), DomainError> {
         if !bet_amount.is_positive() {
             return Err(DomainError::InvalidAmount(
-                "el monto de la apuesta debe ser mayor a cero".to_string(),
+                "El monto de la apuesta debe ser mayor a cero".to_string(),
             ));
         }
 
@@ -210,7 +210,7 @@ mod tests {
                 assert_eq!(requested.value_thousandths, 2600);
                 assert_eq!(current.value_thousandths, 2500);
             }
-            _ => panic!("se esperaba OddsChanged"),
+            _ => panic!("Se esperaba OddsChanged"),
         }
     }
 }

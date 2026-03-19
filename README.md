@@ -16,12 +16,16 @@ Este proyecto no es solo una API CRUD; es un ejercicio de ingeniería de rendimi
 
 ## 🛠️ Stack Tecnológico
 
-- **Backend**: Rust (Actix-Web, SQLx, Redis-RS). Ver [`backend/README.md`](backend/README.md) para detalles de arquitectura.
-- **Caché**: Redis / Upstash (capa de validación rápida).
-- **Persistencia**: PostgreSQL (Neon en producción).
-- **Infraestructura**: Docker Compose.
-- **Testing de Carga**: k6 (Grafana).
-- **Frontend UI**: Next.js 14 (App Router) y Zustand O(1) con Patrón _Snapshot+Delta_ acoplado a WS puro y _Zero React Renders_ para feedback HFT. Ver [`frontend/README.md`](frontend/README.md).
+- **Backend**: Rust 1.88+ (Actix-Web, SQLx, Redis-RS). Ver [`backend/README.md`](backend/README.md) para detalles de arquitectura.
+- **Caché**: Redis / Upstash (capa de validación rápida y concurrencia).
+- **Persistencia**: PostgreSQL (Neon/Docker).
+- **Infraestructura**: Docker Compose + GitHub Actions CI (strict clippy & rustfmt).
+- **Testing**: k6 (Load Testing) + Integration Tests con infraestructura real.
+- **Frontend UI**: Next.js 14 (App Router) y Zustand O(1).
+    - **Fintech Precision**: Lógica monetaria en centavos enteros (zero floats).
+    - **High Frequency UI**: Feedback visual instantáneo (Flash) con _Zero React Renders_.
+    - **Sección de Historial**: Gestión de activos y resueltos con TanStack Query y composición de datos.
+    - Ver [`frontend/README.md`](frontend/README.md).
 
 ## 📂 Estructura del Monorepo
 
