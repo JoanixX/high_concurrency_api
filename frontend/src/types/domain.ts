@@ -28,9 +28,11 @@ export interface BetHistoryEntry {
   bet_id: string;
   user_id: string;
   match_id: string;
+  home_team: string;
+  away_team: string;
   selection: BetSelection;
-  amount: number;
-  odds: number;
+  amount: number;   // centavos (integer)
+  odds: number;     // milésimas (integer)
   status: BetStatus;
   created_at: string; // ISO 8601
 }
