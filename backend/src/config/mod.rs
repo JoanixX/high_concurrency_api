@@ -25,11 +25,16 @@ pub struct RedisSettings {
     pub port: u16,
     pub upstash_redis_rest_url: Option<String>,
     pub upstash_redis_rest_token: Option<Secret<String>>,
+    pub connection_url: Option<Secret<String>>,
 }
 
 impl RedisSettings {
     pub fn connection_string(&self) -> String {
-        format!("redis://{}:{}", self.host, self.port)
+        if let Some(url) = &self.connection_url {
+            url.expose_secret().clone()
+        } else {
+            format!("redis://{}:{}", self.host, self.port)
+        }
     }
 
     pub fn use_upstash(&self) -> bool {
@@ -84,7 +89,7 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
 
     // Cargamos el .env apropiado según el entorno
     let environment: Environment = std::env::var("APP_ENVIRONMENT")
-        .unwrap_or_else(|_| "local".into())
+        .unwrap_or_else(|_| "production".into())
         .try_into()
         .expect("Falló al parsear APP_ENVIRONMENT.");
 
@@ -113,6 +118,9 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
     }
     if let Ok(token) = std::env::var("UPSTASH_REDIS_REST_TOKEN") {
         settings.redis.upstash_redis_rest_token = Some(Secret::new(token));
+    }
+    if let Ok(redis_url) = std::env::var("REDIS_URL") {
+        settings.redis.connection_url = Some(Secret::new(redis_url));
     }
 
     // si existe DATABASE_URL, la parseamos y sobreescribimos los campos del struct
