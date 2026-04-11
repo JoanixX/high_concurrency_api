@@ -41,3 +41,4 @@ scripts/generate_secrets.py
 backend/errors.txt
 backend/test_errors.txt
 backend/check_output.txt
+backend/test_logs.txt
